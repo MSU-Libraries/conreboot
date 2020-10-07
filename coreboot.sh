@@ -18,8 +18,8 @@
 ## PARSE CONFIG FILE
 #######################################
 ## Credit: Config file parsing and loading derived from cfgbackup
-##      Source: https://github.com/natecollins/cfgbackup
-##      Licence: MIT
+## Source: https://github.com/natecollins/cfgbackup
+## Licence: MIT
 
 ###############################
 ## Creates an array of config variables with default values
@@ -29,6 +29,7 @@ default_config() {
     CONFIG[PREVENT_PROCESSES]=
     CONFIG[PREVENT_ACTIVE_USERS]=0
     CONFIG[ACTIVE_USERS_MINUTES]=120
+    CONFIG[SHUTDOWN_TIME]="+1"
     CONFIG[DELAY_UNTIL_OKAY]=0
     CONFIG[RANDOM_DELAY]=0
 }
@@ -111,10 +112,71 @@ parse_config() {
     fi
 }
 
+#######################################
+## REBOOT TEST CONDITIONS
+#######################################
+is_reboot_time() {
+    # TODO
+    return 0
+}
+
+no_prohibited_process() {
+    PROC_FOUND=0
+    IFS=',' read -ra PROC_LIST <<< "${CONFIG[PREVENT_PROCESSES]}"
+    for PROC in "${PROC_LIST[@]}"; do
+        pgrep -f "${PROC}"
+        if [[ $? -eq 0 ]]; then
+            PROC_FOUND=1
+            break
+        fi
+    done
+    return ${PROC_FOUND}
+}
+
+no_active_users() {
+    STALE_TIMEOUT=${CONFIG[ACTIVE_USERS_MINUTES]:-120}
+    # Return nonzero if any login session has been active in less than STALE
+    # seconds. Note that this does not count X11 sessions.
+    who -s | awk '{ print $2 }' |
+        (cd /dev && xargs -r -- stat -c %X --) |
+        awk -v STALE=${STALE_TIMEOUT} -v NOW="$(date +%s)" '{ if (NOW - $1 < STALE) exit 1; }'
+    return $?
+}
+
+#######################################
+## REBOOT TRIGGER FUNCTIONS
+#######################################
+check_reboot() {
+    if  is_reboot_time && \
+        no_prohibited_process && \
+        no_active_users; then
+            REBOOT_OKAY=1
+    fi
+}
+
+do_reboot() {
+    declare -g REBOOT_OKAY
+    REBOOT_OKAY=0
+    check_reboot
+
+    while [[ ${REBOOT_OKAY} -eq 0 && ${CONFIG_FILE[$DELAY_UNTIL_OKAY]} -eq 1 ]]; do
+        sleep 60
+        check_reboot
+    done
+
+    if [[ ${REBOOT_OKAY} -eq 1 ]]; then
+        shutdown -h ${CONFIG[SHUTDOWN_TIME]}
+        # Triggered reboot
+        exit 0
+    fi
+    # Failed to trigger reboot
+    exit 1
+}
 
 #######################################
 ## BEGIN RUNNING coreboot.sh
 #######################################
 CONFIG_FILE=${1:-/etc/coreboot.cfg}
+parse_config
+do_reboot
 
-# TODO config file exists and is readable

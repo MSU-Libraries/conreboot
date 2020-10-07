@@ -1,0 +1,8 @@
+---
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  tasks:
+   - name: Run conditional reboot script
+     script: coreboot.sh
