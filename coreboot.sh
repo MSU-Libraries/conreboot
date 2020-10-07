@@ -116,8 +116,16 @@ parse_config() {
 ## REBOOT TEST CONDITIONS
 #######################################
 is_reboot_time() {
-    # TODO
-    return 0
+    IS_REBOOT_TIME=1
+    IFS=',' read -ra TIME_PERIODS <<< "${CONFIG[REBOOT_TIMES]}"
+    for PERIOD in "${TIME_PERIODS[@]}"; do
+        # TODO check if NOW is within PERIOD (being e.g. "11:30pm-6am")
+        if "TODO"; then
+            IS_REBOOT_TIME=0
+            break
+        fi
+    done
+    return ${IS_REBOOT_TIME}
 }
 
 no_prohibited_process() {
