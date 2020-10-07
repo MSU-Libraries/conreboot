@@ -115,17 +115,44 @@ parse_config() {
 #######################################
 ## REBOOT TEST CONDITIONS
 #######################################
+
+declare -r TIME_REGEX="([0-9]{1,2})(:([0-9]{2}))?([ap])m"
+
+time_to_minutes() {
+    local HOURS MINUTES AFTERNOON
+
+    if ! [[ $1 =~ ^$TIME_REGEX$ ]]; then
+        echo "Bad time: ${1@Q}" >&2
+        exit 1
+    fi
+
+    HOURS=${BASH_REMATCH[1]}
+    ((HOURS == 12)) && HOURS=0
+    MINUTES=${BASH_REMATCH[3]:-0}
+    AFTERNOON=$([[ ${BASH_REMATCH[4]} == p ]] && echo 12 || echo 0)
+
+    echo $((60 * HOURS + 60 * AFTERNOON + MINUTES))
+}
+
 is_reboot_time() {
-    IS_REBOOT_TIME=1
+    local TIME_PERIODS PERIOD RANGE_START RANGE_END NOW
+
     IFS=',' read -ra TIME_PERIODS <<< "${CONFIG[REBOOT_TIMES]}"
     for PERIOD in "${TIME_PERIODS[@]}"; do
-        # TODO check if NOW is within PERIOD (being e.g. "11:30pm-6am")
-        if "TODO"; then
-            IS_REBOOT_TIME=0
-            break
+        if ! [[ $PERIOD =~ ^${TIME_REGEX}-${TIME_REGEX}$ ]]; then
+            echo "Bad time period: ${PERIOD@Q}." >&2
+            exit 1
+        fi
+        RANGE_START=$(time_to_minutes "${PERIOD%-*}")
+        RANGE_END=$(time_to_minutes "${PERIOD#*-}")
+        NOW=$(date "+%H 60 * %M + p" | dc)
+        if ((RANGE_START <= RANGE_END)); then
+            ((RANGE_START <= NOW && NOW <= RANGE_END)) && return 0
+        else
+            ((RANGE_START <= NOW || NOW <= RANGE_END)) && return 0
         fi
     done
-    return ${IS_REBOOT_TIME}
+    return 1
 }
 
 no_prohibited_process() {
