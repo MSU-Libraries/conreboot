@@ -15,6 +15,15 @@
 ##
 
 #######################################
+## Enable debug messages by setting DEBUG. E.g.
+##    DEBUG=1 ./coreboot.sh
+_debug() {
+    if [[ $DEBUG -eq 1 ]]; then
+        echo "$@"
+    fi
+}
+
+#######################################
 ## PARSE CONFIG FILE
 #######################################
 ## Credit: Config file parsing and loading derived from cfgbackup
@@ -31,7 +40,6 @@ default_config() {
     CONFIG[ACTIVE_USERS_MINUTES]=120
     CONFIG[SHUTDOWN_TIME]="+1"
     CONFIG[DELAY_UNTIL_OKAY]=0
-    CONFIG[RANDOM_DELAY]=0
 }
 
 ###############################
@@ -83,6 +91,7 @@ parse_config() {
     # Setting these to empty is allowed and the empty value will override the default value
     ALLOWED_EMPTY=( PREVENT_PROCESSES )
 
+    _debug "Attempting load of config: ${CONFIG_FILE}"
     # Verify config file exists and is readable
     if [[ ! -f $CONFIG_FILE || ! -r $CONFIG_FILE ]]; then
         PARSE_ERRORS+=("Config file doesn't exist or isn't readable.")
@@ -100,6 +109,8 @@ parse_config() {
             fi
             # Update CONFIG values
             CONFIG[$KEY]=$CONFIG_VALUE
+
+            _debug "Loaded from config: ${KEY}=${CONFIG_VALUE}"
         done
     fi
 
@@ -136,7 +147,7 @@ time_to_minutes() {
 
 is_reboot_time() {
     local TIME_PERIODS PERIOD RANGE_START RANGE_END NOW
-
+    IS_REBOOT_TIME=1
     IFS=',' read -ra TIME_PERIODS <<< "${CONFIG[REBOOT_TIMES]}"
     for PERIOD in "${TIME_PERIODS[@]}"; do
         if ! [[ $PERIOD =~ ^${TIME_REGEX}-${TIME_REGEX}$ ]]; then
@@ -145,14 +156,15 @@ is_reboot_time() {
         fi
         RANGE_START=$(time_to_minutes "${PERIOD%-*}")
         RANGE_END=$(time_to_minutes "${PERIOD#*-}")
-        NOW=$(date "+%H 60 * %M + p" | dc)
+        NOW=$(date "+%H * 60 + %M" | perl -ne 'print eval $_;')
         if ((RANGE_START <= RANGE_END)); then
-            ((RANGE_START <= NOW && NOW <= RANGE_END)) && return 0
+            ((RANGE_START <= NOW && NOW <= RANGE_END)) && IS_REBOOT_TIME=0
         else
-            ((RANGE_START <= NOW || NOW <= RANGE_END)) && return 0
+            ((RANGE_START <= NOW || NOW <= RANGE_END)) && IS_REBOOT_TIME=0
         fi
     done
-    return 1
+    _debug "Invalid reboot time? ${IS_REBOOT_TIME}"
+    return ${IS_REBOOT_TIME}
 }
 
 no_prohibited_process() {
@@ -165,26 +177,33 @@ no_prohibited_process() {
             break
         fi
     done
+    _debug "Prohibited processes? ${PROC_FOUND}"
     return ${PROC_FOUND}
 }
 
 no_active_users() {
     STALE_TIMEOUT=${CONFIG[ACTIVE_USERS_MINUTES]:-120}
     # Return nonzero if any login session has been active in less than STALE
-    # seconds. Note that this does not count X11 sessions.
+    # seconds. Note that this does not count X11 sessions
+    SELF_TTY=$( tty | sed 's,/dev/,,' );    # Exclude TTY executing this script
     who -s | awk '{ print $2 }' |
+        grep -v ${SELF_TTY} |
         (cd /dev && xargs -r -- stat -c %X --) |
         awk -v STALE=${STALE_TIMEOUT} -v NOW="$(date +%s)" '{ if (NOW - $1 < STALE) exit 1; }'
-    return $?
+    NO_ACTIVE_USERS=$?
+    _debug "Active users? ${NO_ACTIVE_USERS}"
+    return ${NO_ACTIVE_USERS}
 }
 
 #######################################
 ## REBOOT TRIGGER FUNCTIONS
 #######################################
 check_reboot() {
+    _debug "Checking if okay to issue reboot"
     if  is_reboot_time && \
         no_prohibited_process && \
         no_active_users; then
+            _debug "All reboot checks passed!"
             REBOOT_OKAY=1
     fi
 }
@@ -194,13 +213,15 @@ do_reboot() {
     REBOOT_OKAY=0
     check_reboot
 
-    while [[ ${REBOOT_OKAY} -eq 0 && ${CONFIG_FILE[$DELAY_UNTIL_OKAY]} -eq 1 ]]; do
+    while [[ ${REBOOT_OKAY} -eq 0 && ${CONFIG[DELAY_UNTIL_OKAY]} -eq 1 ]]; do
+        _debug "Sleeping for 1 minute"
         sleep 60
         check_reboot
     done
 
     if [[ ${REBOOT_OKAY} -eq 1 ]]; then
-        shutdown -h ${CONFIG[SHUTDOWN_TIME]}
+        _debug "Initiating reboot command: shutdown -h ${CONFIG[SHUTDOWN_TIME]}"
+        shutdown -r ${CONFIG[SHUTDOWN_TIME]}
         # Triggered reboot
         exit 0
     fi
@@ -211,6 +232,7 @@ do_reboot() {
 #######################################
 ## BEGIN RUNNING coreboot.sh
 #######################################
+_debug "Debug enabled"
 CONFIG_FILE=${1:-/etc/coreboot.cfg}
 parse_config
 do_reboot

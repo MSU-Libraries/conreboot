@@ -6,3 +6,5 @@
   tasks:
    - name: Run conditional reboot script
      script: coreboot.sh
+     environment:
+       DEBUG: 1
