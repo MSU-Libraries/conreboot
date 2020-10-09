@@ -1,0 +1,6 @@
+[Unit]
+Description=Conditionally Reboot the System
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/coreboot

@@ -4,7 +4,23 @@
   become_user: root
   become_method: sudo
   tasks:
-   - name: Run conditional reboot script
-     script: coreboot.sh
-     environment:
-       DEBUG: 1
+   - name: Setup coreboot script
+     copy:
+       src: coreboot
+       dest: /usr/local/sbin/
+       owner: root
+       group: root
+       mode: 755
+
+   - name: Setup coreboot systemd service
+     copy:
+       src: coreboot.service
+       dest: /etc/systemd/system/
+       owner: root
+       group: root
+       mode: 644
+
+   - name: Schedule a conditional reboot
+     systemd:
+       daemon-reload: yes
+       state: restarted

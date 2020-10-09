@@ -16,7 +16,7 @@
 
 #######################################
 ## Enable debug messages by setting DEBUG. E.g.
-##    DEBUG=1 ./coreboot.sh
+##    DEBUG=1 coreboot.sh
 _debug() {
     if [[ $DEBUG -eq 1 ]]; then
         echo "$@"
@@ -115,7 +115,7 @@ parse_config() {
     fi
 
     if [[ ${#PARSE_ERRORS[@]} -ne 0 ]]; then
-        echo "ERROR: Could not parse config file: $CONFIG_FILE"
+        echo "FAILURE: Could not parse config file: $CONFIG_FILE"
         for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
             echo $PARSE_MSG
         done
@@ -198,6 +198,14 @@ no_active_users() {
 #######################################
 ## REBOOT TRIGGER FUNCTIONS
 #######################################
+already_rebooting(){
+    pgrep ${SCRIPT_NAME}
+    if [[ $? -eq 0 ]]; then
+        echo "FAILURE: An instance of ${SCRIPT_NAME} is already running."
+        exit 4
+    fi
+}
+
 check_reboot() {
     _debug "Checking if okay to issue reboot"
     if  is_reboot_time && \
@@ -221,19 +229,23 @@ do_reboot() {
 
     if [[ ${REBOOT_OKAY} -eq 1 ]]; then
         _debug "Initiating reboot command: shutdown -h ${CONFIG[SHUTDOWN_TIME]}"
+        echo "Scheduling reboot at time: ${CONFIG[SHUTDOWN_TIME]}"
         shutdown -r ${CONFIG[SHUTDOWN_TIME]}
         # Triggered reboot
         exit 0
     fi
-    # Failed to trigger reboot
-    exit 1
+
+    # Rebooting is not possible now and DELAY_UNTIL_OKAY is not set
+    echo "FAILURE: Rebooting at this time is not allowed per ${CONFIG_FILE}"
+    exit 2
 }
 
 #######################################
 ## BEGIN RUNNING coreboot.sh
 #######################################
 _debug "Debug enabled"
+SCRIPT_NAME=$( basename $0 )
+already_rebooting
 CONFIG_FILE=${1:-/etc/coreboot.cfg}
 parse_config
 do_reboot
-
