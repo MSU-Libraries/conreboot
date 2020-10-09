@@ -3,4 +3,5 @@ Description=Conditionally Reboot the System
 
 [Service]
 Type=simple
+#Environment="DEBUG=1"
 ExecStart=/usr/local/sbin/coreboot

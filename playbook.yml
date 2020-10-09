@@ -10,7 +10,7 @@
        dest: /usr/local/sbin/
        owner: root
        group: root
-       mode: 755
+       mode: 0755
 
    - name: Setup coreboot systemd service
      copy:
@@ -18,9 +18,10 @@
        dest: /etc/systemd/system/
        owner: root
        group: root
-       mode: 644
+       mode: 0644
 
    - name: Schedule a conditional reboot
      systemd:
        daemon-reload: yes
+       name: coreboot
        state: restarted

@@ -11,7 +11,7 @@
 ##      coreboot.sh
 ##
 ## If config file is missing or invalid,
-## nothing happens and script exits with code 1
+## nothing happens and script exits with code 6
 ##
 
 #######################################
@@ -119,7 +119,7 @@ parse_config() {
         for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
             echo $PARSE_MSG
         done
-        exit 1
+        exit 6
     fi
 }
 
@@ -187,7 +187,7 @@ no_active_users() {
     # seconds. Note that this does not count X11 sessions
     SELF_TTY=$( tty | sed 's,/dev/,,' );    # Exclude TTY executing this script
     who -s | awk '{ print $2 }' |
-        grep -v ${SELF_TTY} |
+        grep -v "${SELF_TTY}" |
         (cd /dev && xargs -r -- stat -c %X --) |
         awk -v STALE=${STALE_TIMEOUT} -v NOW="$(date +%s)" '{ if (NOW - $1 < STALE) exit 1; }'
     NO_ACTIVE_USERS=$?
@@ -198,11 +198,18 @@ no_active_users() {
 #######################################
 ## REBOOT TRIGGER FUNCTIONS
 #######################################
-already_rebooting(){
-    pgrep ${SCRIPT_NAME}
-    if [[ $? -eq 0 ]]; then
-        echo "FAILURE: An instance of ${SCRIPT_NAME} is already running."
+require_root() {
+    if [[ ${EUID} -ne 0 ]]; then
+        echo "Rebooting requires you run as the root user."
         exit 4
+    fi
+}
+
+already_rebooting(){
+    SCRIPT_COUNT=$( pgrep -c ${SCRIPT_NAME} )
+    if [[ ${SCRIPT_COUNT} -gt 1 ]]; then
+        echo "FAILURE: An instance of ${SCRIPT_NAME} is already running."
+        exit 1
     fi
 }
 
@@ -237,13 +244,14 @@ do_reboot() {
 
     # Rebooting is not possible now and DELAY_UNTIL_OKAY is not set
     echo "FAILURE: Rebooting at this time is not allowed per ${CONFIG_FILE}"
-    exit 2
+    exit 7
 }
 
 #######################################
 ## BEGIN RUNNING coreboot.sh
 #######################################
 _debug "Debug enabled"
+require_root
 SCRIPT_NAME=$( basename $0 )
 already_rebooting
 CONFIG_FILE=${1:-/etc/coreboot.cfg}
