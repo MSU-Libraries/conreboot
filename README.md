@@ -13,6 +13,42 @@ Ability to triggers a reboot if preset conditions are met.
  - findutils
  - coreutils
 
+## The Config File
+Each host machine the conditional reboot script will be run on must have a config file setup
+or the script will do nothing and exit.  
+
+The script should be placed at: `/etc/coreboot.cfg`  
+
+The script has following settings:  
+
+`REBOOT_TIMES` (required)  
+This sets the allowed times when a reboot can occur. Format is a comma-delimited list
+of time ranges. Times are in the format such as `3am-7:30am` or `11:30pm-2:30am`  
+```
+# Examples:
+REBOOT_TIMES=12pm-6am
+REBOOT_TIMES=10pm-1am,4:30am-6am
+```
+
+`PREVENT_PROCESSES`  
+TODO  
+
+`PREVENT_ACTIVE_USERS`  
+TODO  
+
+`ACTIVE_USERS_MINUTES`  
+TODO  
+
+`SHUTDOWN_TIME`  
+TODO  
+
+`DELAY_UNTIL_OKAY`  
+TODO  
+
+`PRE_SHUTDOWN_COMMAND`  
+TODO  
+
+
 ## Ansible: Send Reboot Request (includes setup steps)
 This command will:  
  - Setup/update all requirements on the target hosts (e.g script and service)

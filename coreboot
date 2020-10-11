@@ -40,6 +40,7 @@ default_config() {
     CONFIG[ACTIVE_USERS_MINUTES]=120
     CONFIG[SHUTDOWN_TIME]="+1"
     CONFIG[DELAY_UNTIL_OKAY]=0
+    CONFIG[PRE_SHUTDOWN_COMMAND]=
 }
 
 ###############################
@@ -89,7 +90,7 @@ parse_config() {
     declare -a PARSE_ERRORS
     default_config
     # Setting these to empty is allowed and the empty value will override the default value
-    ALLOWED_EMPTY=( PREVENT_PROCESSES )
+    ALLOWED_EMPTY=( PREVENT_PROCESSES PRE_SHUTDOWN_COMMAND )
 
     _debug "Attempting load of config: ${CONFIG_FILE}"
     # Verify config file exists and is readable
@@ -241,6 +242,10 @@ do_reboot() {
     done
 
     if [[ ${REBOOT_OKAY} -eq 1 ]]; then
+        if ! [[ -z "${CONFIG[PRE_SHUTDOWN_COMMAND]}" ]]; then
+            _debug "Running pre-shutdown: ${CONFIG[PRE_SHUTDOWN_COMMAND]}"
+            eval ${CONFIG[PRE_SHUTDOWN_COMMAND]}
+        fi
         _debug "Initiating reboot command: shutdown -h ${CONFIG[SHUTDOWN_TIME]}"
         echo "Scheduling reboot at time: ${CONFIG[SHUTDOWN_TIME]}"
         shutdown -r ${CONFIG[SHUTDOWN_TIME]}
