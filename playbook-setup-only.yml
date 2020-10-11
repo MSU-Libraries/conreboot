@@ -1,0 +1,25 @@
+---
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  tasks:
+   - name: Setup coreboot script
+     copy:
+       src: coreboot
+       dest: /usr/local/sbin/
+       owner: root
+       group: root
+       mode: 0755
+
+   - name: Setup coreboot systemd service
+     copy:
+       src: coreboot.service
+       dest: /etc/systemd/system/
+       owner: root
+       group: root
+       mode: 0644
+
+   - name: Schedule a conditional reboot
+     systemd:
+       daemon-reload: yes
