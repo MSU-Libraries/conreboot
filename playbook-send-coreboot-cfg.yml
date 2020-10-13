@@ -1,0 +1,30 @@
+---
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  tasks:
+   - name: Prompt to explain playbook
+     pause:
+       prompt: "This will copy/overwrite the /etc/coreboot.cfg file on target hosts with the local coreboot.cfg - Press Enter to proceed"
+
+   - name: Check if local coreboot.cfg exists
+     stat:
+       path: coreboot.cfg
+     delegate_to: localhost
+     register: cfg_stat
+
+   - debug:
+       msg: "First you must create a coreboot.cfg file to copy to the hosts. Try copying and editing the example cfg file."
+     when: not cfg_stat.stat.exists or not cfg_stat.stat.isreg
+
+   - meta: end_play
+     when: not cfg_stat.stat.exists or not cfg_stat.stat.isreg
+
+   - name: Copy coreboot.cfg to hosts
+     copy:
+       src: coreboot.cfg
+       dest: /etc/coreboot.cfg
+       owner: root
+       group: root
+       mode: 0644

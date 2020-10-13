@@ -1,6 +1,6 @@
 Conditional Reboot
 ==================
-Ability to triggers a reboot if preset conditions are met.  
+Ability to trigger a reboot on a Linux server only when preset conditions are met.  
 
 **Requirements:**  
  - Bash
@@ -31,7 +31,13 @@ REBOOT_TIMES=10pm-1am,4:30am-6am
 ```
 
 `PREVENT_PROCESSES`  
-TODO  
+Prevent reboot if the listed process(es) are running. Multiple processes may be specified as part
+of a comma-delimited list. This can list just the process or the process with flags.  
+```
+# Examples:
+PREVENT_PROCESSES=rsync,mysqldump
+PREVENT_PROCESSES=mycommand --with-fl -ags
+```
 
 `PREVENT_ACTIVE_USERS`  
 TODO  
@@ -59,10 +65,10 @@ This command will:
 ansible-playbook playbook-reboot.yml
 
 # Send reboot only to specific groups
-ansible-playbook playbook-reboot -l "devel_test,stage"
+ansible-playbook playbook-reboot.yml -l "devel_test,stage"
 
 # Send reboot only to specific hosts
-ansible-playbook playbook-reboot -l "host2.example.edu,host7.example.edu"
+ansible-playbook playbook-reboot.yml -l "host2.example.edu,host7.example.edu"
 ```
 
 ## Ansible: Setup Reboot Only (does not send reboot request)
@@ -93,5 +99,13 @@ This command will:
 systemctl start coreboot
 ```
 
-
+## Ansible: Copy a coreboot.cfg to host machines
+This command will:  
+ - Copy a local file called `coreboot.cfg` to target hosts at `/etc/coreboot.cfg`
+ - Require you first create a local `coreboot.cfg` file
+ - Overwrite the `/etc/coreboot.cfg` on target hosts if they already exist
+```
+# Copy a local coreboot.cfg file to target machines
+ansible-playbook playbook-send-coreboot-cfg.yml -l "host5.example.edu,host6.example.edu"
+```
 

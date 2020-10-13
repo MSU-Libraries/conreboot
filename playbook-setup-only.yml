@@ -20,6 +20,6 @@
        group: root
        mode: 0644
 
-   - name: Schedule a conditional reboot
+   - name: Reload systemd daemons
      systemd:
        daemon-reload: yes
