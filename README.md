@@ -20,13 +20,13 @@ or the script will do nothing and exit.
 The config should be placed at: `/etc/coreboot.cfg` (see included `coreboot.cfg.example` file)  
 
 The config has following settings:  
- * [`REBOOT_TIMES`](#reboot-times)
- * [`PREVENT_PROCESSES`](#prevent-processes)
- * [`PREVENT_ACTIVE_USER_MINUTES`](#prevent-active-user-minutes)
- * [`PREVENT_IF_SCRIPT_FAILS`](#prevent-if-script-fails)
- * [`SHUTDOWN_TIME`](#shutdown-time)
- * [`DELAY_UNTIL_OKAY`](#delay-until-okay)
- * [`PRE_SHUTDOWN_COMMAND`](#pre-shutdown-command)
+ * [`REBOOT_TIMES`](#reboot_times)
+ * [`PREVENT_PROCESSES`](#prevent_processes)
+ * [`PREVENT_ACTIVE_USER_MINUTES`](#prevent_active_user_minutes)
+ * [`PREVENT_IF_SCRIPT_FAILS`](#prevent_if_script-fails)
+ * [`SHUTDOWN_TIME`](#shutdown_time)
+ * [`DELAY_UNTIL_OKAY`](#delay_until_okay)
+ * [`PRE_SHUTDOWN_COMMAND`](#pre_shutdown_command)
 
 ### REBOOT_TIMES
 Default value: `never`  
