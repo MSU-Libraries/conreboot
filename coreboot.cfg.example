@@ -1,7 +1,8 @@
 # Allowed times when this server is allowed to reboot
 # Value is a range of times, e.g. 1am-4:30am
 # Multiple ranges can be specified using a comma delimited list
-# Default: 3am-7am
+# Default: never
+#REBOOT_TIMES=never
 REBOOT_TIMES=12am-1am,3am-7am
 
 # Prevent a reboot if any of the following processes are detected running (comma delimited list)
@@ -11,8 +12,8 @@ PREVENT_PROCESSES=rsync
 
 # How long a user must be idle (in minutes) before they are considered no longer active
 # Set to 0 to reboot while users are active
-# Default: 600
-PREVENT_ACTIVE_USER_SECONDS=300
+# Default: 60
+PREVENT_ACTIVE_USER_SECONDS=120
 
 # This command must return success (exit code 0) or a reboot will be prevented.
 # Note that this command should be able to be executed quickly, and repeatedly, as coreboot will

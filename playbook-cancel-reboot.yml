@@ -1,0 +1,13 @@
+---
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  tasks:
+   - name: Unscheduling conditional reboot
+     systemd:
+       name: coreboot
+       state: stopped
+
+   - name: Stop any active shutdown command
+     command: shutdown -c

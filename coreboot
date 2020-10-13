@@ -34,9 +34,9 @@ _debug() {
 ## Creates an array of config variables with default values
 default_config() {
     declare -g -A CONFIG
-    CONFIG[REBOOT_TIMES]=3am-7am
+    CONFIG[REBOOT_TIMES]=never
     CONFIG[PREVENT_PROCESSES]=
-    CONFIG[PREVENT_ACTIVE_USER_SECONDS]=600
+    CONFIG[PREVENT_ACTIVE_USER_MINUTES]=60
     CONFIG[PREVENT_IF_SCRIPT_FAILS]=
     CONFIG[SHUTDOWN_TIME]="+1"
     CONFIG[DELAY_UNTIL_OKAY]=1
@@ -183,14 +183,13 @@ no_prohibited_process() {
 }
 
 no_active_users() {
-    STALE_TIMEOUT=${CONFIG[PREVENT_ACTIVE_USER_SECONDS]:-600}
-    # Return nonzero if any login session has been active in less than STALE
-    # seconds. Note that this does not count X11 sessions
+    # Return nonzero if any login session has been active in less than PREVENT_ACTIVE_USER_MINUTES
+    # Note that this does not count X11 sessions
     SELF_TTY=$( tty | sed 's,/dev/,,' );    # Exclude TTY executing this script
     who -s | awk '{ print $2 }' |
         grep -v "${SELF_TTY}" |
         (cd /dev && xargs -r -- stat -c %X --) |
-        awk -v STALE=${STALE_TIMEOUT} -v NOW="$(date +%s)" '{ if (NOW - $1 < STALE) exit 1; }'
+        awk -v STALE=${CONFIG[PREVENT_ACTIVE_USER_MINUTES]} -v NOW="$(date +%s)" '{ if ((NOW - $1) / 60 < STALE) exit 1; }'
     NO_ACTIVE_USERS=$?
     _debug "Active users? ${NO_ACTIVE_USERS}"
     return ${NO_ACTIVE_USERS}
@@ -220,6 +219,13 @@ already_rebooting(){
     if [[ ${SCRIPT_COUNT} -gt 1 ]]; then
         echo "FAILURE: An instance of ${SCRIPT_NAME} is already running."
         exit 1
+    fi
+}
+
+check_never_reboot() {
+    if [[ "${CONFIG[REBOOT_TIMES],,}" == "never" ]]; then
+        echo "Conditional rebooting is set to 'never' for this host."
+        exit 0;
     fi
 }
 
@@ -279,4 +285,5 @@ SCRIPT_NAME=$( basename $0 )
 already_rebooting
 CONFIG_FILE=${1:-/etc/coreboot.cfg}
 parse_config
+check_never_reboot
 do_reboot
