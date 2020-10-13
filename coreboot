@@ -36,10 +36,9 @@ default_config() {
     declare -g -A CONFIG
     CONFIG[REBOOT_TIMES]=3am-7am
     CONFIG[PREVENT_PROCESSES]=
-    CONFIG[PREVENT_ACTIVE_USERS]=0
-    CONFIG[ACTIVE_USERS_MINUTES]=120
+    CONFIG[PREVENT_ACTIVE_USER_SECONDS]=600
     CONFIG[SHUTDOWN_TIME]="+1"
-    CONFIG[DELAY_UNTIL_OKAY]=0
+    CONFIG[DELAY_UNTIL_OKAY]=1
     CONFIG[PRE_SHUTDOWN_COMMAND]=
 }
 
@@ -183,7 +182,7 @@ no_prohibited_process() {
 }
 
 no_active_users() {
-    STALE_TIMEOUT=${CONFIG[ACTIVE_USERS_MINUTES]:-120}
+    STALE_TIMEOUT=${CONFIG[PREVENT_ACTIVE_USER_SECONDS]:-600}
     # Return nonzero if any login session has been active in less than STALE
     # seconds. Note that this does not count X11 sessions
     SELF_TTY=$( tty | sed 's,/dev/,,' );    # Exclude TTY executing this script
@@ -216,6 +215,8 @@ already_rebooting(){
 
 check_reboot() {
     _debug "Checking if okay to issue reboot"
+    tty
+    IS_TTY=$?
     if  is_reboot_time && \
         no_prohibited_process && \
         no_active_users; then

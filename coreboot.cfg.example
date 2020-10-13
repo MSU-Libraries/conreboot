@@ -9,13 +9,10 @@ REBOOT_TIMES=12am-1am,3am-7am
 # Default: (nothing)
 PREVENT_PROCESSES=rsync
 
-# Prevent a reboot if any active user sessions exist
-# Default: 0
-PREVENT_ACTIVE_USERS=1
-
 # How long a user must be idle (in minutes) before they are considered no longer active
-# Default: 120
-ACTIVE_USERS_MINUTES=180
+# Set to 0 to reboot while users are active
+# Default: 600
+PREVENT_ACTIVE_USER_SECONDS=300
 
 # The TIME argument to pass to the shutdown command (see `man shutdown`)
 # Default of +1, or one minute delay until shutdown commences
