@@ -37,6 +37,7 @@ default_config() {
     CONFIG[REBOOT_TIMES]=3am-7am
     CONFIG[PREVENT_PROCESSES]=
     CONFIG[PREVENT_ACTIVE_USER_SECONDS]=600
+    CONFIG[PREVENT_IF_SCRIPT_FAILS]=
     CONFIG[SHUTDOWN_TIME]="+1"
     CONFIG[DELAY_UNTIL_OKAY]=1
     CONFIG[PRE_SHUTDOWN_COMMAND]=
@@ -195,6 +196,15 @@ no_active_users() {
     return ${NO_ACTIVE_USERS}
 }
 
+check_prescript_success() {
+    SCRIPT_EXIT=0
+    if ! [[ -z "${CONFIG[PREVENT_IF_SCRIPT_FAILS]}" ]]; then
+        eval "${CONFIG[PREVENT_IF_SCRIPT_FAILS]}"
+        SCRIPT_EXIT=$?
+    fi
+    return ${SCRIPT_EXIT}
+}
+
 #######################################
 ## REBOOT TRIGGER FUNCTIONS
 #######################################
@@ -219,7 +229,8 @@ check_reboot() {
     IS_TTY=$?
     if  is_reboot_time && \
         no_prohibited_process && \
-        no_active_users; then
+        no_active_users && \
+        check_prescript_success; then
             _debug "All reboot checks passed!"
             REBOOT_OKAY=1
     elif [[ ${IS_TTY} -eq 0 ]]; then

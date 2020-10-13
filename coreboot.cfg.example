@@ -14,6 +14,12 @@ PREVENT_PROCESSES=rsync
 # Default: 600
 PREVENT_ACTIVE_USER_SECONDS=300
 
+# This command must return success (exit code 0) or a reboot will be prevented.
+# Note that this command should be able to be executed quickly, and repeatedly, as coreboot will
+# continually run this every minute while waiting for a reboot to become safe to do.
+# Default: (nothing)
+PREVENT_IF_SCRIPT_FAILS="[[ -d /tmp ]]"
+
 # The TIME argument to pass to the shutdown command (see `man shutdown`)
 # Default of +1, or one minute delay until shutdown commences
 SHUTDOWN_TIME=+0
@@ -24,5 +30,6 @@ SHUTDOWN_TIME=+0
 DELAY_UNTIL_OKAY=1
 
 # Command(s) to run just prior to issuing the `shutdown -r` command
+# Regardless of success or failure of this script, the reboot will commence afterward
 # Default: (nothing)
 PRE_SHUTDOWN_COMMAND="echo 'About' > /tmp/coreboot.log; echo 'to reboot' >> /tmp/coreboot.log"
