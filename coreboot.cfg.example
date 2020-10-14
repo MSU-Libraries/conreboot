@@ -13,7 +13,7 @@ PREVENT_PROCESSES=rsync
 # How long a user must be idle (in minutes) before they are considered no longer active
 # Set to 0 to reboot while users are active
 # Default: 60
-PREVENT_ACTIVE_USER_SECONDS=120
+PREVENT_ACTIVE_USER_MINUTES=120
 
 # This command must return success (exit code 0) or a reboot will be prevented.
 # Note that this command should be able to be executed quickly, and repeatedly, as coreboot will
