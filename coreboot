@@ -172,7 +172,7 @@ no_prohibited_process() {
     PROC_FOUND=0
     IFS=',' read -ra PROC_LIST <<< "${CONFIG[PREVENT_PROCESSES]}"
     for PROC in "${PROC_LIST[@]}"; do
-        pgrep -f "${PROC}" > /dev/null
+        pgrep -f -- "${PROC}" > /dev/null
         if [[ $? -eq 0 ]]; then
             PROC_FOUND=1
             break
