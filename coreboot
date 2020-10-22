@@ -231,7 +231,7 @@ check_never_reboot() {
 
 check_reboot() {
     _debug "Checking if okay to issue reboot"
-    tty
+    tty > /dev/null
     IS_TTY=$?
     if  is_reboot_time && \
         no_prohibited_process && \
