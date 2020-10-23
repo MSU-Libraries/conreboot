@@ -157,7 +157,7 @@ is_reboot_time() {
         fi
         RANGE_START=$(time_to_minutes "${PERIOD%-*}")
         RANGE_END=$(time_to_minutes "${PERIOD#*-}")
-        NOW=$(date "+%H * 60 + %M" | perl -ne 'print eval $_;')
+        NOW=$(date "+%H * 60 + %M" | bc)
         if ((RANGE_START <= RANGE_END)); then
             ((RANGE_START <= NOW && NOW <= RANGE_END)) && IS_REBOOT_TIME=0
         else
