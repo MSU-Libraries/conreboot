@@ -20,6 +20,21 @@
        group: root
        mode: 0644
 
-   - name: Reload systemd daemons
+   - name: Setup coreboot systemd timer
+     copy:
+       src: coreboot.timer
+       dest: /etc/systemd/system/
+       owner: root
+       group: root
+       mode: 0644
+
+   - name: Ensure coreboot timer is enabled
      systemd:
        daemon-reload: yes
+       name: coreboot.timer
+       enabled: yes
+
+   - name: Ensure coreboot service is running
+     systemd:
+       name: coreboot.service
+       state: restarted

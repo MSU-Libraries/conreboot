@@ -4,10 +4,10 @@
   become_user: root
   become_method: sudo
   tasks:
-   - name: Unscheduling conditional reboot
-     systemd:
-       name: coreboot
-       state: stopped
+   - name: Unscheduling any manual coreboot reboots
+     command:
+       cmd: /usr/local/sbin/coreboot --cancel
+       removes: /run/coreboot-scheduled
 
-   - name: Stop any active shutdown command
+   - name: Stop any active shutdown commands
      command: shutdown -c

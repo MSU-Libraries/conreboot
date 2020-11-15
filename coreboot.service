@@ -1,5 +1,5 @@
 [Unit]
-Description=Conditionally Reboot the System
+Description=Monitor for conditions to reboot the system
 
 [Service]
 Type=simple

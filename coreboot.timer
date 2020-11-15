@@ -1,0 +1,9 @@
+[Unit]
+Description=Start coreboot service delayed after boot
+
+[Timer]
+# Delay coreboot by 10 minutes to prevent constant reboot in case of bug or misconfiguration
+OnBootSec=10min
+
+[Install]
+WantedBy=timers.target

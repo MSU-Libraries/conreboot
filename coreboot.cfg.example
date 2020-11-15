@@ -22,13 +22,8 @@ PREVENT_ACTIVE_USER_MINUTES=120
 PREVENT_IF_SCRIPT_FAILS="[[ -d /tmp ]]"
 
 # The TIME argument to pass to the shutdown command (see `man shutdown`)
-# Default of +1, or one minute delay until shutdown commences
+# Default of +1 (one minute delay until shutdown commences)
 SHUTDOWN_TIME=+0
-
-# When this is set and reboot conditions are NOT met, the reboot script will keep checking
-# every minute until reboot conditions are met, and start a reboot them.
-# Default: 1
-DELAY_UNTIL_OKAY=1
 
 # Command(s) to run just prior to issuing the `shutdown -r` command
 # Regardless of success or failure of this script, the reboot will commence afterward

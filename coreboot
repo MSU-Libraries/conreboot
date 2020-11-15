@@ -2,25 +2,132 @@
 #######################################
 ## Conditional Reboot
 #######################################
-##
-## Usage:
-##   Reboot based on CONFIG file
-##      coreboot.sh CONFIG
-##
-##   Reboot based on /etc/coreboot.cfg
-##      coreboot.sh
+## Requires coreboot systemd service be enabled
+## Requires valid /etc/coreboot.cfg defined
 ##
 ## If config file is missing or invalid,
-## nothing happens and script exits with code 6
+## nothing happens and script exits with code 1
 ##
+
+command_help() {
+    echo ""
+    echo "Usage: coreboot [FLAGS]"
+    echo ""
+    echo "Conditional reboot client, used to control the coreboot service."
+    echo " * For information on configuring, see:   man coreboot.cfg"
+    echo " * For more information on use, see:      man coreboot"
+    echo ""
+    echo "FLAGS:"
+    echo "  -s | --status"
+    echo "      Display the current status of the coreboot service and also the current"
+    echo "      system status versus conditions required before a reboot would be initiated."
+    echo "  -f | --force"
+    echo "      Force a reboot as soon as conditions will allow, even if the system"
+    echo "      does not indicate a need to reboot currently."
+    echo "  -c | --cancel"
+    echo "      Cancel any forced reboot that was queued."
+    echo "  -d | --daemon"
+    echo "      Start up the daemon instance of coreboot which actually monitors"
+    echo "      system state and will issue reboot commands."
+    echo "  -h | --help"
+    echo "      Display this message."
+    echo ""
+}
+
+## Paths
+CONFIG_FILE=/etc/coreboot.cfg
+FORCE_REBOOT_INDICATOR=/run/coreboot-scheduled
+
+## Colors
+CLR_RED='\033[0;31m'
+CLR_ORANGE='\033[0;33m'
+CLR_GREEN='\033[0;32m'
+CLR_BLUE='\033[1;34m'
+CLR_YELLOW='\033[1;33m'
+CLR_PURPLE='\033[0;35m'
+CLR_CYAN='\033[0;36m'
+CLR_GRAY='\033[0;37m'
+CLR_WHITE='\033[1;37m'
+CLR_RESET='\033[0m'
 
 #######################################
 ## Enable debug messages by setting DEBUG. E.g.
-##    DEBUG=1 coreboot.sh
+##    DEBUG=1 coreboot
 _debug() {
     if [[ $DEBUG -eq 1 ]]; then
         echo "$@"
     fi
+}
+
+#######################################
+## PARSE ARGUMENTS
+#######################################
+parse_args() {
+    declare -g CONFIG_FILE
+    declare -g -A ARGS
+    ARGS[STATUS]=0
+    ARGS[FORCE]=0
+    ARGS[DAEMON]=0
+    ARGS[CANCEL]=0
+
+    PARSED=$( getopt -n coreboot -o sfhdc --longoptions status,force,help,daemon,cancel -- "$@" )
+    PARSE_OKAY=$?
+    if [ "${PARSE_OKAY}" -ne 0 ]; then
+      command_help
+      exit 1
+    fi
+
+    _debug "Parsed flags: ${PARSED}"
+    eval set -- "${PARSED}"
+    while test $# -gt 0; do
+      case "${1}" in
+        -s|--status)
+          ARGS[STATUS]=1
+          shift
+          ;;
+        -f|--force)
+          ARGS[FORCE]=1
+          shift
+          ;;
+        -x|--cancel)
+          ARGS[CANCEL]=1
+          shift
+          ;;
+        -d|--daemon)
+          ARGS[DAEMON]=1
+          shift
+          ;;
+        -h|--help)
+          command_help
+          exit 0
+          ;;
+        --)
+          shift
+          break
+          ;;
+        *)
+          echo "Unknown argument: ${1}"
+          exit 1
+          ;;
+      esac
+    done
+}
+
+###############################
+## Output a string to indicate the OS family of the current
+## system if this system family is compatible with coreboot
+## Prints "unknown" if not found or not compatible.
+get_distro_family() {
+    eval $( grep -E '^(ID|ID_LIKE)' /etc/os-release )
+    FAMILIES=(${ID} ${ID_LIKE})
+    COMPAT_FAMILIES=(debian rhel)
+    for COMPAT in "${COMPAT_FAMILIES[@]}"; do
+        if array_contains FAMILIES "${COMPAT}"; then
+            echo "${COMPAT}"
+            return
+        fi
+    done
+    echo "unknown"
 }
 
 #######################################
@@ -39,7 +146,6 @@ default_config() {
     CONFIG[PREVENT_ACTIVE_USER_MINUTES]=60
     CONFIG[PREVENT_IF_SCRIPT_FAILS]=
     CONFIG[SHUTDOWN_TIME]="+1"
-    CONFIG[DELAY_UNTIL_OKAY]=1
     CONFIG[PRE_SHUTDOWN_COMMAND]=
 }
 
@@ -116,11 +222,11 @@ parse_config() {
     fi
 
     if [[ ${#PARSE_ERRORS[@]} -ne 0 ]]; then
-        echo "FAILURE: Could not parse config file: $CONFIG_FILE"
+        echo -e "${CLR_RED}FAILURE${CLR_RESET}: Could not parse config file: $CONFIG_FILE"
         for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
             echo $PARSE_MSG
         done
-        exit 6
+        exit 1
     fi
 }
 
@@ -204,27 +310,38 @@ check_prescript_success() {
     return ${SCRIPT_EXIT}
 }
 
+need_to_reboot() {
+    # TODO
+}
+
 #######################################
 ## REBOOT TRIGGER FUNCTIONS
 #######################################
 require_root() {
     if [[ ${EUID} -ne 0 ]]; then
-        echo "Rebooting requires you run as the root user."
-        exit 4
+        echo -e "${CLR_YELLOW}NOTE${CLR_RESET}: The coreboot script requires you run as the root user."
+        exit 1
     fi
 }
 
-already_rebooting(){
+config_is_root() {
+    if [[ ! -O "${CONFIG_FILE}" || ! -G "${CONFIG_FILE}" ]]; then
+        echo -e "${CLR_RED}WARNING${CLR_RESET}: Config file must be owned and editable only by root user."
+        exit 1
+    fi
+}
+
+check_already_running() {
     SCRIPT_COUNT=$( pgrep -c ${SCRIPT_NAME} )
     if [[ ${SCRIPT_COUNT} -gt 1 ]]; then
-        echo "FAILURE: An instance of ${SCRIPT_NAME} is already running."
+        echo -e "${CLR_RED}FAILURE${CLR_RESET}: An instance of ${SCRIPT_NAME} is already running."
         exit 1
     fi
 }
 
 check_never_reboot() {
     if [[ "${CONFIG[REBOOT_TIMES],,}" == "never" ]]; then
-        echo "Conditional rebooting is set to 'never' for this host."
+        echo -e "Conditional rebooting is set to 'never' for this host."
         exit 0;
     fi
 }
@@ -233,29 +350,35 @@ check_reboot() {
     _debug "Checking if okay to issue reboot"
     tty > /dev/null
     IS_TTY=$?
-    if  is_reboot_time && \
+    if  need_to_reboot && \
+        is_reboot_time && \
         no_prohibited_process && \
         no_active_users && \
         check_prescript_success; then
             _debug "All reboot checks passed!"
             REBOOT_OKAY=1
     elif [[ ${IS_TTY} -eq 0 ]]; then
-        echo "FAILURE: It is not currently safe to reboot."
-        if [[ ${CONFIG[DELAY_UNTIL_OKAY]} -eq 1 ]]; then
-            echo "To schedule a reboot for once it is safe, run:  systemd start coreboot"
-        fi
-        exit 7
+        echo -e "${CLR_RED}FAILURE${CLR_RESET}: It is not currently safe to reboot."
+        echo -e "To schedule a reboot for once it is safe, run:  coreboot --force"
+        exit 1
     fi
 }
 
-do_reboot() {
+daemon_loop() {
+    # Skip if not daemon
+    if ! [[ ${ARGS[DAEMON]} -eq 1 ]]; then
+        return 0
+    fi
+
+    _debug "Starting coreboot as daemon"
     declare -g REBOOT_OKAY
     REBOOT_OKAY=0
     check_reboot
 
-    while [[ ${REBOOT_OKAY} -eq 0 && ${CONFIG[DELAY_UNTIL_OKAY]} -eq 1 ]]; do
+    while [[ ${REBOOT_OKAY} -eq 0 ]]; do
         _debug "Sleeping for 1 minute"
-        sleep 60
+        # Using read timeout to prevent ugly sleep processes
+        coproc read -t 60 DUMMY && wait "$!" || true
         check_reboot
     done
 
@@ -265,25 +388,129 @@ do_reboot() {
             eval ${CONFIG[PRE_SHUTDOWN_COMMAND]}
         fi
         _debug "Initiating reboot command: shutdown -h ${CONFIG[SHUTDOWN_TIME]}"
-        echo "Scheduling reboot at time: ${CONFIG[SHUTDOWN_TIME]}"
+        echo -e "Scheduling reboot at time: ${CONFIG[SHUTDOWN_TIME]}"
         shutdown -r ${CONFIG[SHUTDOWN_TIME]}
-        # Triggered reboot
-        exit 0
+    fi
+    exit 0
+}
+
+command_status() {
+    # Skip if not status
+    if ! [[ ${ARGS[STATUS]} -eq 1 ]]; then
+        return 0
     fi
 
-    # Rebooting is not possible now and DELAY_UNTIL_OKAY is not set
-    echo "FAILURE: Rebooting at this time is not allowed per ${CONFIG_FILE}"
-    exit 7
+    FAMILY=$( get_distro_family )
+    if [[ ${FAMILY} == "unknown" ]]; then
+        echo -e "${CLR_RED}FAILURE${CLR_RESET}: Incompatible Linux distro family."
+        exit 1
+    fi
+
+    if [[ ${FAMILY} == "debian" ]]; then
+        dpkg -l update-notifier 2> /dev/null 1> /dev/null
+        if [[ $? -ne 0 ]]; then
+            echo -e "${CLR_RED}FAILURE${CLR_RESET}: Debian coreboot requires the update-notifier package to be installed."
+            exit 1
+        fi
+    elif [[ ${FAMILY} == "rhel" ]]; then
+        rpm -q yum-utils 2>&1 > /dev/null
+        if [[ $? -ne 0 ]]; then
+            echo -e "${CLR_RED}FAILURE${CLR_RESET}: RHEL/CentOS coreboot requires the yum-utils package to be installed."
+            exit 1
+        fi
+    fi
+
+    STATE_TRUE="${CLR_GREEN}True${CLR_RESET}"
+    STATE_FALSE="${CLR_ORANGE}False${CLR_RESET}"
+
+    DAEMON_PID=$( systemctl show --property MainPID --value coreboot )
+    DAEMON_RUNNING=$(( $DAEMON_PID != 0 ))
+    NEEDS_REBOOT=0
+    if [[ "${FAMILY}" == "ubuntu" ]] && [[ -f "/run/reboot-required" || -f "/run/reboot-required.pkgs" ]]; then
+        NEEDS_REBOOT=1
+    elif [[ "${FAMILY}" == "rhel" ]] && ! needs-restarting -r; then
+        NEEDS_REBOOT=1
+    fi
+    REBOOT_QUEUED=0
+    if [[ -f "${FORCE_REBOOT_INDICATOR}" ]]; then
+        REBOOT_QUEUED=1
+    fi
+
+    echo -e "Is coreboot Daemon Running:  $( [[ $DAEMON_RUNNING -eq 1 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    if [[ "${DAEMON_PID}" -ne 0 ]]; then
+        echo -e "Daemon PID:                  ${DAEMON_PID}"
+    fi
+    echo -e "Needs System Reboot:         $( [[ $NEEDS_REBOOT -eq 1 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "Force Reboot Queued:         $( [[ $REBOOT_QUEUED -eq 1 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+
+    echo -e "${CLR_PURPLE}CONDITIONS${CLR_RESET}"
+    echo -e "  REBOOT_TIMES"
+    echo -e "    Value:      ${CLR_WHITE}${CONFIG[REBOOT_TIMES]}${CLR_RESET}"
+    echo -e "    Reboot Ok:  $( is_reboot_time && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "  PREVENT_PROCESSES"
+    echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_PROCESSES]}${CLR_RESET}"
+    echo -e "    Reboot Ok:  $( no_prohibited_process && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "  PREVENT_ACTIVE_USER_MINUTES"
+    echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_ACTIVE_USER_MINUTES]}${CLR_RESET}"
+    echo -e "    Reboot Ok:  $( no_active_users && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "  PREVENT_IF_SCRIPT_FAILS"
+    echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_IF_SCRIPT_FAILS]}${CLR_RESET}"
+    echo -e "    Reboot Ok:  $( check_prescript_success && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+}
+
+command_force() {
+    # Skip if not force manual
+    if ! [[ ${ARGS[FORCE]} -eq 1 ]]; then
+        return 0
+    fi
+
+    DAEMON_PID=$( systemctl show --property MainPID --value coreboot )
+    if [[ "${DAEMON_PID}" -eq 0 ]]; then
+        echo -e "${CLR_RED}WARNING${CLR_RESET}: The coreboot daemon is not currently running."
+    fi
+
+    touch "${FORCE_REBOOT_INDICATOR}"
+    INDICATOR_CREATED=$?
+    if [[ ${INDICATOR_CREATED} -eq 0 && ${DAEMON_PID} -ne 0 ]]; then
+        echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: Manual reboot scheduled."
+    elif [[ ${INDICATOR_CREATED} -eq 0 && ${DAEMON_PID} -eq 0 ]]; then
+        echo -e "${CLR_YELLOW}SUCCESS${CLR_RESET}: Manual reboot scheduled, but cannot occur while coreboot service is not running.."
+    else
+        echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to schedule a reboot."
+    fi
+}
+
+command_cancel() {
+    # Skip if not cancel
+    if ! [[ ${ARGS[CANCEL]} -eq 1 ]]; then
+        return 0
+    fi
+
+    if [[ -f "${FORCE_REBOOT_INDICATOR}" ]]; then
+        rm "${FORCE_REBOOT_INDICATOR}"
+        if [[ $? -eq 0 ]]; then
+            echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: A manually scheduled coreboot has been cancelled."
+        else
+            echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to unset a scheduled coreboot."
+            exit 1
+        fi
+    else
+        echo -e "${CLR_BLUE}SKIPPED${CLR_RESET}: There is no manually scheuduled coreboot to stop."
+    fi
 }
 
 #######################################
 ## BEGIN RUNNING coreboot.sh
 #######################################
 _debug "Debug enabled"
-require_root
 SCRIPT_NAME=$( basename $0 )
-already_rebooting
-CONFIG_FILE=${1:-/etc/coreboot.cfg}
+require_root
+parse_args "$@"
+config_is_root
+check_already_running
 parse_config
 check_never_reboot
-do_reboot
+command_status
+command_force
+command_cancel
+daemon_loop
