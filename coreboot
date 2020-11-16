@@ -311,14 +311,21 @@ check_prescript_success() {
 }
 
 need_to_reboot() {
-    NEEDS_REBOOT=0
+    NEEDS_REBOOT=1
     FAMILY=$( get_distro_family )
-    if [[ "${FAMILY}" == "ubuntu" ]] && [[ -f "/run/reboot-required" || -f "/run/reboot-required.pkgs" ]]; then
-        NEEDS_REBOOT=1
+    if [[ "${FAMILY}" == "debian" ]] && [[ -f "/run/reboot-required" || -f "/run/reboot-required.pkgs" ]]; then
+        NEEDS_REBOOT=0
     elif [[ "${FAMILY}" == "rhel" ]] && ! needs-restarting -r; then
-        NEEDS_REBOOT=1
+        NEEDS_REBOOT=0
     fi
     return $NEEDS_REBOOT
+}
+
+queued_reboot() {
+    REBOOT_QUEUED=1
+    if [[ -f "${MANUAL_REBOOT_INDICATOR}" ]]; then
+        REBOOT_QUEUED=0
+    fi
 }
 
 #######################################
@@ -355,9 +362,7 @@ check_never_reboot() {
 
 check_reboot() {
     _debug "Checking if okay to issue reboot"
-    tty > /dev/null
-    IS_TTY=$?
-    if  need_to_reboot && \
+    if  ( need_to_reboot || queued_reboot ) && \
         is_reboot_time && \
         no_prohibited_process && \
         no_active_users && \
@@ -428,17 +433,13 @@ command_status() {
 
     DAEMON_PID=$( systemctl show --property MainPID --value coreboot )
     DAEMON_RUNNING=$(( $DAEMON_PID != 0 ))
-    REBOOT_QUEUED=0
-    if [[ -f "${MANUAL_REBOOT_INDICATOR}" ]]; then
-        REBOOT_QUEUED=1
-    fi
 
     echo -e "Is coreboot Daemon Running:  $( [[ $DAEMON_RUNNING -eq 1 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     if [[ "${DAEMON_PID}" -ne 0 ]]; then
         echo -e "Daemon PID:                  ${DAEMON_PID}"
     fi
-    echo -e "Needs System Reboot:         $( ! need_to_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
-    echo -e "Force Reboot Queued:         $( [[ $REBOOT_QUEUED -eq 1 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "Needs System Reboot:         $( need_to_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "Force Reboot Queued:         $( queued_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
 
     echo -e "${CLR_BLUE}CONDITIONS${CLR_RESET}"
     echo -e "  REBOOT_TIMES"
