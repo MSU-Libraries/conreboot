@@ -1,6 +1,6 @@
 Conditional Reboot
 ==================
-Ability to trigger a reboot on a Linux server only when preset conditions are met.  
+Triggers a reboot on a Linux server when preset conditions are met. The primary condition is that the server indicates that it needs to be rebooted. Other conditions are defined in a config file on the server.  
 
 **Requirements:**  
  - Bash
@@ -12,6 +12,18 @@ Ability to trigger a reboot on a Linux server only when preset conditions are me
  - procps
  - findutils
  - coreutils
+ - update-notifier (debian / ubnutu family of Linux)
+ - yum-utils/dnf-utils (rhel or centos family of Linux)
+
+The `coreboot` service will reboot the server via a `shutdown -r` command when the server indicates that it requires a restart (due to package/kernel upgrades) or if the administrator issues a manually scheduled reboot to occur. In addtion to this, the `coreboot` service checks the config file to ensure those conditions also match, for example at what time is it safe to reboot.  
+
+## The Command
+The `coreboot` command is central to the service. It has the following flags:  
+* `--help/-h` Display help about the flags.
+* `--status/-s` Display status of coreboot service, if any reboot is pending, and status of each condition that must happen before a reboot could happen.
+* `--manual/-m` Schedule a manual coreboot to happen as soon as all conditions are safe, even if the server does not indicate the need to reboot.
+* `--cancel/-c` Cancel a scheduled manual coreboot.
+* `--daemon/-d` Start as a coreboot daemon; used by the systemd service unit.
 
 ## The Config File: /etc/coreboot.cfg
 Each host machine the conditional reboot script will be run on must have a config file setup
@@ -25,7 +37,6 @@ The config has following settings:
  * [`PREVENT_ACTIVE_USER_MINUTES`](#prevent_active_user_minutes)
  * [`PREVENT_IF_SCRIPT_FAILS`](#prevent_if_script-fails)
  * [`SHUTDOWN_TIME`](#shutdown_time)
- * [`DELAY_UNTIL_OKAY`](#delay_until_okay)
  * [`PRE_SHUTDOWN_COMMAND`](#pre_shutdown_command)
 
 ### REBOOT_TIMES
@@ -78,16 +89,6 @@ Setting to `+0` or `now` will result in immediate shutdown once it is determined
 ```
 SHUTDOWN_TIME=now
 SHUTDOWN_TIME=+5
-```
-
-### DELAY_UNTIL_OKAY
-Default: `1`  
-Once a conditional reboot request has been scheduled, whether or not to keep checking every minute until
-it is safe to reboot. When set to `1`, the `coreboot` service keep checking until it is safe to reboot, then
-initiate a reboot. When set to `0`, only one reboot attempt will be performed.  
-```
-DELAY_UNTIL_OKAY=0
-DELAY_UNTIL_OKAY=1
 ```
 
 ### PRE_SHUTDOWN_COMMAND
@@ -146,22 +147,12 @@ This command will:
 ansible-playbook playbook-send-coreboot-cfg.yml -l "host5.example.edu,host6.example.edu"
 ```
 
-## Locally: Attempt an immediate conditional reboot
+## Locally: Manually schedule an conditional reboot
 This command will:  
- - Attempt a conditional reboot immediately on the local host, or diplay a message if the reboot could not take place
- - Ignore the user session calling the script from being considered an active user
- - NOT schedule a conditional reboot for later, should it not be possible now
+ - Schedule an conditional reboot (i.e. `coreboot`) on the localhost
 ```
-# Attempt to reboot immediately, if it is safe to do so
-coreboot
-```
-
-## Locally: Schedule an immediate conditional reboot
-This command will:  
- - Schedule an immediate conditional reboot (i.e. `coreboot`) on the localhost
-```
-# Attempt to reboot immediately, including delaying until reboot is safe to happen, if the config allows that
-systemctl start coreboot
+# Attempt to reboot as soon as possible, only delaying until reboot is safe to happen
+coreboot --manual
 ```
 
 ## Locally: Cancel a Scheduled Reboot
@@ -170,7 +161,7 @@ These commands will:
  - Cancel any scheduled `shutdown` command on the local host
 ```
 # Unschedule a scheduled conditional reboot
-systemctl stop coreboot
+coreboot --cancel
 # Cancel an already issued shutdown command
 shutdown -c
 ```

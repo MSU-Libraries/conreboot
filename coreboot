@@ -21,11 +21,11 @@ command_help() {
     echo "  -s | --status"
     echo "      Display the current status of the coreboot service and also the current"
     echo "      system status versus conditions required before a reboot would be initiated."
-    echo "  -f | --force"
-    echo "      Force a reboot as soon as conditions will allow, even if the system"
-    echo "      does not indicate a need to reboot currently."
+    echo "  -m | --manual"
+    echo "      Schedule a manual reboot for soon as conditions will allow, even if the"
+    echo "      system does not indicate a need to reboot currently."
     echo "  -c | --cancel"
-    echo "      Cancel any forced reboot that was queued."
+    echo "      Cancel any manual reboot that was queued."
     echo "  -d | --daemon"
     echo "      Start up the daemon instance of coreboot which actually monitors"
     echo "      system state and will issue reboot commands."
@@ -36,7 +36,7 @@ command_help() {
 
 ## Paths
 CONFIG_FILE=/etc/coreboot.cfg
-FORCE_REBOOT_INDICATOR=/run/coreboot-scheduled
+MANUAL_REBOOT_INDICATOR=/run/coreboot-scheduled
 
 ## Colors
 CLR_RED='\033[0;31m'
@@ -66,11 +66,11 @@ parse_args() {
     declare -g CONFIG_FILE
     declare -g -A ARGS
     ARGS[STATUS]=0
-    ARGS[FORCE]=0
+    ARGS[MANUAL]=0
     ARGS[DAEMON]=0
     ARGS[CANCEL]=0
 
-    PARSED=$( getopt -n coreboot -o sfhdc --longoptions status,force,help,daemon,cancel -- "$@" )
+    PARSED=$( getopt -n coreboot -o smhdc --longoptions status,manual,help,daemon,cancel -- "$@" )
     PARSE_OKAY=$?
     if [ "${PARSE_OKAY}" -ne 0 ]; then
       command_help
@@ -85,8 +85,8 @@ parse_args() {
           ARGS[STATUS]=1
           shift
           ;;
-        -f|--force)
-          ARGS[FORCE]=1
+        -m|--manual)
+          ARGS[MANUAL]=1
           shift
           ;;
         -x|--cancel)
@@ -311,7 +311,14 @@ check_prescript_success() {
 }
 
 need_to_reboot() {
-    # TODO
+    NEEDS_REBOOT=0
+    FAMILY=$( get_distro_family )
+    if [[ "${FAMILY}" == "ubuntu" ]] && [[ -f "/run/reboot-required" || -f "/run/reboot-required.pkgs" ]]; then
+        NEEDS_REBOOT=1
+    elif [[ "${FAMILY}" == "rhel" ]] && ! needs-restarting -r; then
+        NEEDS_REBOOT=1
+    fi
+    return $NEEDS_REBOOT
 }
 
 #######################################
@@ -332,9 +339,9 @@ config_is_root() {
 }
 
 check_already_running() {
-    SCRIPT_COUNT=$( pgrep -c ${SCRIPT_NAME} )
-    if [[ ${SCRIPT_COUNT} -gt 1 ]]; then
-        echo -e "${CLR_RED}FAILURE${CLR_RESET}: An instance of ${SCRIPT_NAME} is already running."
+    SCRIPT_COUNT=$( pgrep -c -f "${SCRIPT_NAME} --daemon" )
+    if [[ ${SCRIPT_COUNT} -gt 1 && ${ARGS[DAEMON]} -eq 1 ]]; then
+        echo -e "${CLR_RED}FAILURE${CLR_RESET}: An instance of ${SCRIPT_NAME} daemon is already running."
         exit 1
     fi
 }
@@ -357,10 +364,6 @@ check_reboot() {
         check_prescript_success; then
             _debug "All reboot checks passed!"
             REBOOT_OKAY=1
-    elif [[ ${IS_TTY} -eq 0 ]]; then
-        echo -e "${CLR_RED}FAILURE${CLR_RESET}: It is not currently safe to reboot."
-        echo -e "To schedule a reboot for once it is safe, run:  coreboot --force"
-        exit 1
     fi
 }
 
@@ -425,14 +428,8 @@ command_status() {
 
     DAEMON_PID=$( systemctl show --property MainPID --value coreboot )
     DAEMON_RUNNING=$(( $DAEMON_PID != 0 ))
-    NEEDS_REBOOT=0
-    if [[ "${FAMILY}" == "ubuntu" ]] && [[ -f "/run/reboot-required" || -f "/run/reboot-required.pkgs" ]]; then
-        NEEDS_REBOOT=1
-    elif [[ "${FAMILY}" == "rhel" ]] && ! needs-restarting -r; then
-        NEEDS_REBOOT=1
-    fi
     REBOOT_QUEUED=0
-    if [[ -f "${FORCE_REBOOT_INDICATOR}" ]]; then
+    if [[ -f "${MANUAL_REBOOT_INDICATOR}" ]]; then
         REBOOT_QUEUED=1
     fi
 
@@ -440,10 +437,10 @@ command_status() {
     if [[ "${DAEMON_PID}" -ne 0 ]]; then
         echo -e "Daemon PID:                  ${DAEMON_PID}"
     fi
-    echo -e "Needs System Reboot:         $( [[ $NEEDS_REBOOT -eq 1 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "Needs System Reboot:         $( ! need_to_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     echo -e "Force Reboot Queued:         $( [[ $REBOOT_QUEUED -eq 1 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
 
-    echo -e "${CLR_PURPLE}CONDITIONS${CLR_RESET}"
+    echo -e "${CLR_BLUE}CONDITIONS${CLR_RESET}"
     echo -e "  REBOOT_TIMES"
     echo -e "    Value:      ${CLR_WHITE}${CONFIG[REBOOT_TIMES]}${CLR_RESET}"
     echo -e "    Reboot Ok:  $( is_reboot_time && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
@@ -452,15 +449,15 @@ command_status() {
     echo -e "    Reboot Ok:  $( no_prohibited_process && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     echo -e "  PREVENT_ACTIVE_USER_MINUTES"
     echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_ACTIVE_USER_MINUTES]}${CLR_RESET}"
-    echo -e "    Reboot Ok:  $( no_active_users && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "    Reboot Ok:  $( no_active_users && echo "$STATE_TRUE" || echo "$STATE_FALSE" ) ${CLR_PURPLE}(excluding your current session)${CLR_RESET}"
     echo -e "  PREVENT_IF_SCRIPT_FAILS"
     echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_IF_SCRIPT_FAILS]}${CLR_RESET}"
     echo -e "    Reboot Ok:  $( check_prescript_success && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
 }
 
-command_force() {
-    # Skip if not force manual
-    if ! [[ ${ARGS[FORCE]} -eq 1 ]]; then
+command_manual() {
+    # Skip if not manual flag
+    if ! [[ ${ARGS[MANUAL]} -eq 1 ]]; then
         return 0
     fi
 
@@ -469,7 +466,7 @@ command_force() {
         echo -e "${CLR_RED}WARNING${CLR_RESET}: The coreboot daemon is not currently running."
     fi
 
-    touch "${FORCE_REBOOT_INDICATOR}"
+    touch "${MANUAL_REBOOT_INDICATOR}"
     INDICATOR_CREATED=$?
     if [[ ${INDICATOR_CREATED} -eq 0 && ${DAEMON_PID} -ne 0 ]]; then
         echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: Manual reboot scheduled."
@@ -486,8 +483,8 @@ command_cancel() {
         return 0
     fi
 
-    if [[ -f "${FORCE_REBOOT_INDICATOR}" ]]; then
-        rm "${FORCE_REBOOT_INDICATOR}"
+    if [[ -f "${MANUAL_REBOOT_INDICATOR}" ]]; then
+        rm "${MANUAL_REBOOT_INDICATOR}"
         if [[ $? -eq 0 ]]; then
             echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: A manually scheduled coreboot has been cancelled."
         else
@@ -511,6 +508,6 @@ check_already_running
 parse_config
 check_never_reboot
 command_status
-command_force
+command_manual
 command_cancel
 daemon_loop

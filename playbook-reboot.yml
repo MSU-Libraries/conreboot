@@ -1,13 +1,13 @@
 ---
+- import_playbook: playbook-setup-only.yml
+
 - hosts: all
   become: yes
   become_user: root
   become_method: sudo
 
-  import_playbook: playbook-setup-only.yml
-
   tasks:
-   - name: Schedule a conditional reboot
+   - name: Schedule a conditional reboot manually
      command:
-       cmd: /usr/local/sbin/coreboot --force
+       cmd: /usr/local/sbin/coreboot --manual
        creates: /run/coreboot-scheduled

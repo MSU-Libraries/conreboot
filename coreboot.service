@@ -4,4 +4,4 @@ Description=Monitor for conditions to reboot the system
 [Service]
 Type=simple
 #Environment="DEBUG=1"
-ExecStart=/usr/local/sbin/coreboot
+ExecStart=/usr/local/sbin/coreboot --daemon
