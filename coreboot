@@ -89,7 +89,7 @@ parse_args() {
           ARGS[MANUAL]=1
           shift
           ;;
-        -x|--cancel)
+        -c|--cancel)
           ARGS[CANCEL]=1
           shift
           ;;
