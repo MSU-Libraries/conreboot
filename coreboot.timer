@@ -4,6 +4,8 @@ Description=Start coreboot service delayed after boot
 [Timer]
 # Delay coreboot by 10 minutes to prevent constant reboot in case of bug or misconfiguration
 OnBootSec=10min
+# If coreboot service exits, restart after a while; to not leave service stopped in case coreboot shutdown is canceled
+OnUnitInactiveSec=60min
 
 [Install]
 WantedBy=timers.target
