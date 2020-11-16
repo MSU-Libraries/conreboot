@@ -326,6 +326,7 @@ queued_reboot() {
     if [[ -f "${MANUAL_REBOOT_INDICATOR}" ]]; then
         REBOOT_QUEUED=0
     fi
+    return ${REBOOT_QUEUED}
 }
 
 #######################################
