@@ -440,7 +440,7 @@ command_status() {
         echo -e "Daemon PID:                  ${DAEMON_PID}"
     fi
     echo -e "Needs System Reboot:         $( need_to_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
-    echo -e "Manual Reboot Queued:         $( queued_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "Manual Reboot Queued:        $( queued_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
 
     echo -e "${CLR_BLUE}CONDITIONS${CLR_RESET}"
     echo -e "  REBOOT_TIMES"
