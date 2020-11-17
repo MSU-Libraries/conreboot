@@ -111,6 +111,16 @@ parse_args() {
           ;;
       esac
     done
+
+    # Check if no flags; if none, then display help
+    FLAGS_CNT=0
+    for ARG in ${ARGS[@]}; do
+        FLAGS_CNT=$(( FLAGS_CNT + ARG ))
+    done
+    if [[ $FLAGS_CNT -eq 0 ]]; then
+        command_help
+        exit 0
+    fi
 }
 
 ###############################
@@ -433,9 +443,7 @@ command_status() {
     STATE_FALSE="${CLR_ORANGE}False${CLR_RESET}"
 
     DAEMON_PID=$( systemctl show --property MainPID --value coreboot )
-    DAEMON_RUNNING=$(( $DAEMON_PID != 0 ))
-
-    echo -e "Is coreboot Daemon Running:  $( [[ $DAEMON_RUNNING -eq 1 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "Is coreboot Daemon Running:  $( [[ ${DAEMON_PID} -ne 0 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     if [[ "${DAEMON_PID}" -ne 0 ]]; then
         echo -e "Daemon PID:                  ${DAEMON_PID}"
     fi
@@ -473,7 +481,7 @@ command_manual() {
     if [[ ${INDICATOR_CREATED} -eq 0 && ${DAEMON_PID} -ne 0 ]]; then
         echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: Manual reboot scheduled."
     elif [[ ${INDICATOR_CREATED} -eq 0 && ${DAEMON_PID} -eq 0 ]]; then
-        echo -e "${CLR_YELLOW}SUCCESS${CLR_RESET}: Manual reboot scheduled, but cannot occur while coreboot service is not running.."
+        echo -e "${CLR_YELLOW}SUCCESS${CLR_RESET}: Manual reboot scheduled, but cannot occur while coreboot service is not running."
     else
         echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to schedule a reboot."
     fi
@@ -499,7 +507,7 @@ command_cancel() {
 }
 
 #######################################
-## BEGIN RUNNING coreboot.sh
+## BEGIN RUNNING coreboot
 #######################################
 _debug "Debug enabled"
 SCRIPT_NAME=$( basename $0 )
