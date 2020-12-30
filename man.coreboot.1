@@ -1,0 +1,131 @@
+.TH "coreboot" "1" "30 Dec 2020" "" ""
+.SH "NAME"
+coreboot \- the conditional rebooter
+
+.SH "SYNOPSIS"
+.B corebooot
+[FLAGS]
+
+.SH "DESCRIPTION"
+.PP
+coreboot is a service that will automatically reboot your system
+when requires it, but only when certain conditions are met.
+To signal an need for automatic reboot, the system must have library
+or kernel that requires a reboot to load. See REQUIREMENTS.
+Conditions can be: a specific time period(s), whether there are any
+active users logged in, if there are any specific processes running,
+or even based on if a specific command succeeds. If all conditions
+are met, the system will automatically schedule a reboot.
+
+.PP
+You can also manually set the signal to schedule a reboot even
+if the system doesn't indicate a need. See "FLAGS". A manually
+scheduled reboot otherwise follows the same conditions that
+would otherwise be considered.
+
+.SH "FLAGS"
+.TP
+.B -h / --help
+Display a help message about the command and flags.
+.TP
+.B -s / --status
+Display the status of coreboot, if any reboot is pending, and
+the status of each condition.
+.TP
+.B -m / --manual
+Schedule a manual conditional reboot even if the system does
+not indicate a requirement to do so.
+.TP
+.B -c / --cancel
+Cancel a manually scheduled conditional reboot.
+.TP
+.B -d / --daemon
+Start coreboot as a daemon. This is the flag used by the
+coreboot systemd service and should not need to be manually used.
+
+.SH "REQUIREMENTS"
+.TP
+A number of packages are required for coreboot to work.
+.PP
+On Debian family distros:  update-notifier
+.PP
+On RHEL/Fedora distros:  yum-utils
+.PP
+On all systems: bash systemd perl awk grep pgrep procps findutils coreutils
+
+.SH "CONFIG"
+.PP
+Before coreboot will run, it requires a config file to specify the
+conditions under which it will reboot.
+.PP
+.B
+/etc/coreboot.cfg
+.PP
+Settings in the config file are as follows:
+
+.TP
+.B REBOOT_TIMES
+This sets the allowed times when a reboot can occur. Format is a
+comma-delimited list of time ranges. Times are in the format such
+as 3am-7:30am or 11:30pm-2:30am. When set to never, conditional
+reboot requests will never be allowed and the coreboot will exit
+with code 0
+.IP
+Default: never
+
+.TP
+.B PREVENT_PROCESSES
+Prevent reboot if the listed process(es) are running. Multiple
+processes may be specified as part of a comma-delimited list.
+This can list just the process or the process with flags.
+.IP
+Default: (nothing)
+
+.TP
+.B PREVENT_ACTIVE_USER_MINUTES
+Prevent reboot if there are active users logged in, where an
+active user is those who have terminal activity with the given
+number of minutes. Set to 0 to allow rebooting while users are
+active.
+.IP
+Default: 60
+
+.TP
+.B PREVENT_IF_SCRIPT_FAILS
+Prevent reboot is the given script or Bash shell command returns
+anything other than 0. Will do nothing if value is empty. Note
+that this command should be able to be executed quickly, and
+repeatedly, as the conditional reboot may continually run this
+command every minute while waiting to reboot.
+.IP
+Default: (nothing)
+
+.TP
+.B SHUTDOWN_TIME
+Sets the TIME argument to the shutdown command. Default is 1 minute
+warning before shutdown commences. Setting to +0 or now will result
+in immediate shutdown once it is determined to be okay to reboot.
+.IP
+Default: +1
+
+.TP
+.B PRE_SHUTDOWN_COMMAND
+When set, this script or Bash shell command will run just prior
+to the shutdown command. The shutdown command will commence
+regardess of the exit code of this command.
+.IP
+Default: (nothing)
+
+.SH "REPORTING BUGS"
+.PP
+Please report any bugs at <colli372@ msu.edu>
+
+.SH "COPYRIGHT"
+.PP
+Copyright (c) 2020 Michigan State University
+.PP
+
+.SH "AUTHOR"
+.PP
+Written by Nathan Collins <colli372@ msu.edu>
+

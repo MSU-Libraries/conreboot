@@ -12,6 +12,34 @@
        group: root
        mode: 0755
 
+   - name: Setup coreboot bash auto completion
+     copy:
+       src: auto_coreboot.bash
+       dest: /etc/bash_completion.d/coreboot
+       owner: root
+       group: root
+       mode: 0755
+
+   - name: Remove old coreboot man page
+     file:
+       path: /usr/share/man/man1/coreboot.1.gz
+       state: absent
+
+   - name: Copy over new coreboot man page
+     copy:
+       src: man.coreboot.1
+       dest: /usr/share/man/man1/coreboot.1
+       owner: root
+       group: root
+       mode: 0644
+
+   - name: Gzip coreboot man page
+     archive:
+       path: /usr/share/man/man1/coreboot.1
+       dest: /usr/share/man/man1/coreboot.1.gz
+       remove: yes
+       format: gz
+
    - name: Setup coreboot systemd service
      copy:
        src: coreboot.service
