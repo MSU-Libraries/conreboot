@@ -1,25 +1,25 @@
 #!/bin/bash
 #######################################
-## Conditional Reboot
+## Conditional Reboot Service
 #######################################
-## Requires coreboot systemd service be enabled
-## Requires valid /etc/coreboot.cfg defined
-##
-## If config file is missing or invalid,
-## nothing happens and script exits with code 1
-##
+# Requires valid /etc/conreboot.cfg defined
+# If config file is missing or invalid,
+# nothing happens and script exits with code 1
+#
+
+SCRIPT_NAME=$( basename $0 )
 
 command_help() {
     echo ""
-    echo "Usage: coreboot [FLAGS]"
+    echo "Usage: $SCRIPT_NAME [FLAGS]"
     echo ""
-    echo "Conditional reboot client, used to control the coreboot service."
-    echo " * For information on configuring, see:   man coreboot.cfg"
-    echo " * For more information on use, see:      man coreboot"
+    echo "A conditional rebooting client, used to control the conreboot service."
+    echo " * For information on configuring, see:   man conreboot.cfg"
+    echo " * For more information on use, see:      man conreboot"
     echo ""
     echo "FLAGS:"
     echo "  -s | --status"
-    echo "      Display the current status of the coreboot service and also the current"
+    echo "      Display the current status of the conreboot service and also the current"
     echo "      system status versus conditions required before a reboot would be initiated."
     echo "  -m | --manual"
     echo "      Schedule a manual reboot for soon as conditions will allow, even if the"
@@ -27,7 +27,7 @@ command_help() {
     echo "  -c | --cancel"
     echo "      Cancel any manual reboot that was queued."
     echo "  -d | --daemon"
-    echo "      Start up the daemon instance of coreboot which actually monitors"
+    echo "      Start up the daemon instance of conreboot which actually monitors"
     echo "      system state and will issue reboot commands."
     echo "  -h | --help"
     echo "      Display this message."
@@ -35,8 +35,8 @@ command_help() {
 }
 
 ## Paths
-CONFIG_FILE=/etc/coreboot.cfg
-MANUAL_REBOOT_INDICATOR=/run/coreboot-scheduled
+CONFIG_FILE=/etc/conreboot.cfg
+MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
 
 ## Colors
 CLR_RED='\033[0;31m'
@@ -52,10 +52,10 @@ CLR_RESET='\033[0m'
 
 #######################################
 ## Enable debug messages by setting DEBUG. E.g.
-##    DEBUG=1 coreboot
+##    DEBUG=1 conreboot
 _debug() {
     if [[ $DEBUG -eq 1 ]]; then
-        echo "$@"
+        1>&2 echo "$@"
     fi
 }
 
@@ -70,7 +70,7 @@ parse_args() {
     ARGS[DAEMON]=0
     ARGS[CANCEL]=0
 
-    PARSED=$( getopt -n coreboot -o smhdc --longoptions status,manual,help,daemon,cancel -- "$@" )
+    PARSED=$( getopt -n conreboot -o smhdc --longoptions status,manual,help,daemon,cancel -- "$@" )
     PARSE_OKAY=$?
     if [ "${PARSE_OKAY}" -ne 0 ]; then
       command_help
@@ -125,7 +125,7 @@ parse_args() {
 
 ###############################
 ## Output a string to indicate the OS family of the current
-## system if this system family is compatible with coreboot
+## system if this system family is compatible with conreboot
 ## Prints "unknown" if not found or not compatible.
 get_distro_family() {
     eval $( grep -E '^(ID|ID_LIKE)' /etc/os-release )
@@ -163,9 +163,15 @@ default_config() {
 ## Parse a value for a given config line
 ##  $1 -> File to search
 ##  $2 -> Name of parameter to get value for
-## Prints the string value, or empty string if not found
+## Prints the string value, or empty string if not found.
+## If multiple matching parameters exist, only the last defined is output.
 config_param_get() {
     grep -E "^ *$2 *=" $1 | tail -n 1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
+}
+###############################
+# Same as config_param_get, but returns all matching parameters, one per line
+config_param_get_all() {
+    grep -E "^ *$2 *=" $1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
 }
 
 ###############################
@@ -286,14 +292,16 @@ is_reboot_time() {
 
 no_prohibited_process() {
     PROC_FOUND=0
-    IFS=',' read -ra PROC_LIST <<< "${CONFIG[PREVENT_PROCESSES]}"
-    for PROC in "${PROC_LIST[@]}"; do
-        pgrep -f -- "${PROC}" > /dev/null
-        if [[ $? -eq 0 ]]; then
-            PROC_FOUND=1
-            break
-        fi
-    done
+    while read -r CONF_LINE; do
+        IFS=',' read -ra PROC_LIST <<< "${CONF_LINE}"
+        for PROC in "${PROC_LIST[@]}"; do
+            pgrep -f -- "${PROC}" > /dev/null
+            if [[ $? -eq 0 ]]; then
+                PROC_FOUND=1
+                break 2
+            fi
+        done
+    done < <( config_param_get_all "$CONFIG_FILE" "PREVENT_PROCESSES" )
     _debug "Prohibited processes? ${PROC_FOUND}"
     return ${PROC_FOUND}
 }
@@ -315,6 +323,7 @@ check_prescript_success() {
     SCRIPT_EXIT=0
     if ! [[ -z "${CONFIG[PREVENT_IF_SCRIPT_FAILS]}" ]]; then
         eval "${CONFIG[PREVENT_IF_SCRIPT_FAILS]}"
+        # TODO add support for allowing multple prevent-if-script-fails parameters
         SCRIPT_EXIT=$?
     fi
     return ${SCRIPT_EXIT}
@@ -344,7 +353,7 @@ queued_reboot() {
 #######################################
 require_root() {
     if [[ ${EUID} -ne 0 ]]; then
-        echo -e "${CLR_YELLOW}NOTE${CLR_RESET}: The coreboot script requires you run as the root user."
+        echo -e "${CLR_YELLOW}NOTE${CLR_RESET}: The conreboot script requires you run as the root user."
         exit 1
     fi
 }
@@ -389,7 +398,7 @@ daemon_loop() {
         return 0
     fi
 
-    _debug "Starting coreboot as daemon"
+    _debug "Starting conreboot as daemon"
     declare -g REBOOT_OKAY
     REBOOT_OKAY=0
     check_reboot
@@ -399,16 +408,22 @@ daemon_loop() {
         # Using read timeout to prevent ugly sleep processes
         coproc read -t 60 DUMMY && wait "$!" || true
         check_reboot
+        # TODO if a reboot is needed/scheduled, add a temporary addition to MOTD indicating that a reboot is needed and when the reboot window is
+        # TODO add a config setting to disable MOTD modifications
     done
 
     if [[ ${REBOOT_OKAY} -eq 1 ]]; then
         if ! [[ -z "${CONFIG[PRE_SHUTDOWN_COMMAND]}" ]]; then
             _debug "Running pre-shutdown: ${CONFIG[PRE_SHUTDOWN_COMMAND]}"
+            # TODO allow multiple pre-shutdown-commands
             eval ${CONFIG[PRE_SHUTDOWN_COMMAND]}
         fi
         _debug "Initiating reboot command: shutdown -h ${CONFIG[SHUTDOWN_TIME]}"
         echo -e "Scheduling reboot at time: ${CONFIG[SHUTDOWN_TIME]}"
         shutdown -r ${CONFIG[SHUTDOWN_TIME]}
+        # TODO remove /etc/nologin
+        # TODO add a temporary addition to MOTD to indicate when the node is scheduled for a reboot, indicating the time it will happen
+        # TODO add a config setting to disable MOTD modifications
     fi
     exit 0
 }
@@ -428,13 +443,13 @@ command_status() {
     if [[ ${FAMILY} == "debian" ]]; then
         dpkg -l update-notifier 2> /dev/null 1> /dev/null
         if [[ $? -ne 0 ]]; then
-            echo -e "${CLR_RED}FAILURE${CLR_RESET}: Debian coreboot requires the update-notifier package to be installed."
+            echo -e "${CLR_RED}FAILURE${CLR_RESET}: Debian/Ubuntu conreboot requires the update-notifier package to be installed."
             exit 1
         fi
     elif [[ ${FAMILY} == "rhel" ]]; then
         rpm -q yum-utils 2>&1 > /dev/null
         if [[ $? -ne 0 ]]; then
-            echo -e "${CLR_RED}FAILURE${CLR_RESET}: RHEL/CentOS coreboot requires the yum-utils package to be installed."
+            echo -e "${CLR_RED}FAILURE${CLR_RESET}: RHEL/Rocky conreboot requires the yum-utils package to be installed."
             exit 1
         fi
     fi
@@ -442,8 +457,8 @@ command_status() {
     STATE_TRUE="${CLR_GREEN}True${CLR_RESET}"
     STATE_FALSE="${CLR_ORANGE}False${CLR_RESET}"
 
-    DAEMON_PID=$( systemctl show --property MainPID --value coreboot )
-    echo -e "Is coreboot Daemon Running:  $( [[ ${DAEMON_PID} -ne 0 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    DAEMON_PID=$( systemctl show --property MainPID --value conreboot )
+    echo -e "Is conreboot Daemon Running:  $( [[ ${DAEMON_PID} -ne 0 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     if [[ "${DAEMON_PID}" -ne 0 ]]; then
         echo -e "Daemon PID:                  ${DAEMON_PID}"
     fi
@@ -454,12 +469,12 @@ command_status() {
     echo -e "  REBOOT_TIMES"
     echo -e "    Value:      ${CLR_WHITE}${CONFIG[REBOOT_TIMES]}${CLR_RESET}"
     echo -e "    Reboot Ok:  $( is_reboot_time && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
-    echo -e "  PREVENT_PROCESSES"
-    echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_PROCESSES]}${CLR_RESET}"
-    echo -e "    Reboot Ok:  $( no_prohibited_process && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     echo -e "  PREVENT_ACTIVE_USER_MINUTES"
     echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_ACTIVE_USER_MINUTES]}${CLR_RESET}"
     echo -e "    Reboot Ok:  $( no_active_users && echo "$STATE_TRUE" || echo "$STATE_FALSE" ) ${CLR_PURPLE}(excluding your current session)${CLR_RESET}"
+    echo -e "  PREVENT_PROCESSES"
+    echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_PROCESSES]}${CLR_RESET}"
+    echo -e "    Reboot Ok:  $( no_prohibited_process && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     echo -e "  PREVENT_IF_SCRIPT_FAILS"
     echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_IF_SCRIPT_FAILS]}${CLR_RESET}"
     echo -e "    Reboot Ok:  $( check_prescript_success && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
@@ -471,9 +486,9 @@ command_manual() {
         return 0
     fi
 
-    DAEMON_PID=$( systemctl show --property MainPID --value coreboot )
+    DAEMON_PID=$( systemctl show --property MainPID --value conreboot )
     if [[ "${DAEMON_PID}" -eq 0 ]]; then
-        echo -e "${CLR_RED}WARNING${CLR_RESET}: The coreboot daemon is not currently running."
+        echo -e "${CLR_RED}WARNING${CLR_RESET}: The conreboot daemon is not currently running."
     fi
 
     touch "${MANUAL_REBOOT_INDICATOR}"
@@ -481,7 +496,7 @@ command_manual() {
     if [[ ${INDICATOR_CREATED} -eq 0 && ${DAEMON_PID} -ne 0 ]]; then
         echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: Manual reboot scheduled."
     elif [[ ${INDICATOR_CREATED} -eq 0 && ${DAEMON_PID} -eq 0 ]]; then
-        echo -e "${CLR_YELLOW}SUCCESS${CLR_RESET}: Manual reboot scheduled, but cannot occur while coreboot service is not running."
+        echo -e "${CLR_YELLOW}SUCCESS${CLR_RESET}: Manual reboot scheduled, but cannot occur while conreboot service is not running."
     else
         echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to schedule a reboot."
     fi
@@ -496,21 +511,20 @@ command_cancel() {
     if [[ -f "${MANUAL_REBOOT_INDICATOR}" ]]; then
         rm "${MANUAL_REBOOT_INDICATOR}"
         if [[ $? -eq 0 ]]; then
-            echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: A manually scheduled coreboot has been cancelled."
+            echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: A manually scheduled conreboot has been cancelled."
         else
-            echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to unset a scheduled coreboot."
+            echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to unset a scheduled conreboot."
             exit 1
         fi
     else
-        echo -e "${CLR_BLUE}SKIPPED${CLR_RESET}: There is no manually scheuduled coreboot to stop."
+        echo -e "${CLR_BLUE}SKIPPED${CLR_RESET}: There is no manually scheuduled conreboot to stop."
     fi
 }
 
-#######################################
-## BEGIN RUNNING coreboot
-#######################################
+#########################
+## BEGIN RUNNING
+#########################
 _debug "Debug enabled"
-SCRIPT_NAME=$( basename $0 )
 require_root
 parse_args "$@"
 config_is_root
