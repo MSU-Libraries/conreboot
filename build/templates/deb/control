@@ -1,0 +1,13 @@
+Package: conreboot
+Version: $VERSION
+Architecture: all
+Maintainer: $PKGBLD_NAME <$PKGBLD_EMAIL>
+Installed-Size: $PKGBLD_INSTALL_SIZE
+Depends: bash, awk, procps
+Section: utils
+Priority: optional
+Homepage: https://github.com/msu-libraries/conreboot/
+Description: Service to perform conditional reboots based
+ on a user defined configuration file. Includes a command
+ for checking reboot conditions and manually scheduling
+ a reboot during the next reboot window.

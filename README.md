@@ -3,11 +3,10 @@ conreboot - Conditional Rebooter
 Triggers a reboot on a Linux system when preset conditions are met. The primary condition is that the server indicates that it needs to be rebooted. Other conditions are defined in a config file on the server.  
 
 **Requirements:**  
- - Bash
+ - bash
  - systemd
  - awk
  - grep
- - pgrep
  - procps
  - findutils
  - coreutils
