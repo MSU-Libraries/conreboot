@@ -1,6 +1,8 @@
 #!/bin/bash
 
 SCRIPT_NAME=$( basename $0 )
+# Search for VERSION=XYX in VERSION_FILE (file relative to SRC_DIR)
+VERSION_FILE=conreboot
 
 runhelp() {
     echo ""
@@ -9,6 +11,10 @@ runhelp() {
     echo "    Build .deb package from project source."
     echo ""
     echo "FLAGS:"
+    echo "  -n|--builder-name NAME"
+    echo "      Name of who is building the package (will prompt if not provided)."
+    echo "  -e|--builder-email EMAIL"
+    echo "      Address of who is building the package (will prompt if not provided)."
     echo "  -v|--verbose"
     echo "      Display what is happening."
     echo "  -y|--yes"
@@ -44,18 +50,18 @@ config_param_get() {
     grep -E "^ *$2 *=" $1 | tail -n 1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
 }
 
-# Set defaults
-defaults() {
+declare_vars() {
     declare -g VERBOSE=0
     declare -g YES=0
     declare -g PKGBLD_NAME=
     declare -g PKGBLD_EMAIL=
     declare -g PKGBLD_DATE=$( date )
     declare -g BLD_DIR=$( readlink -f $( dirname "${BASH_SOURCE[0]}" ))
-    declare -g SRC_DIR=$( dirname "$BUILD_DIR" )
+    declare -g SRC_DIR=$( dirname "$BLD_DIR" )
     declare -g DIST_DIR="${BLD_DIR}/dist"
+    declare -g PKG_NAME=$( basename "$SRC_DIR" )
+    declare -g VERSION=$( config_param_get "${SRC_DIR}/${VERSION_FILE}" "VERSION" )
     mkdir -p "$DIST_DIR"
-    declare -g VERSION=$( config_param_get "$SRC_DIR/../conreboot" )
 }
 
 parse_args() {
@@ -67,6 +73,12 @@ parse_args() {
         -y|--yes)
             YES=1
             shift ;;
+        -n|--builder-name)
+            PKGBLD_NAME="$2"
+            shift; shift ;;
+        -e|--builder-email)
+            PKGBLD_EMAIL="$2"
+            shift; shift ;;
         *)
             echo "ERROR: Unknown flag: $1"
             exit 1
@@ -95,8 +107,13 @@ builder_info() {
     done
 
     echo
-    echo "Name:  $PKGBLD_NAME"
-    echo "Email: $PKGBLD_EMAIL"
+    echo "Package:  $PKG_NAME"
+    echo "Builder:  $PKGBLD_NAME"
+    echo "Email:    $PKGBLD_EMAIL"
+    echo "Version:  $VERSION"
+    echo "Source:   $SRC_DIR"
+    echo "Build:    $BLD_DIR"
+    echo "Dist:     $DIST_DIR"
     echo
     if [[ "$YES" -ne 1 ]]; then
         read -p "Is this correct (y/n)? " CONFIRM_PRMPT
@@ -107,9 +124,26 @@ builder_info() {
     fi
 }
 
+build_data() {
+}
+
+build_control() {
+}
+
+make_archive() {
+}
+
+cleanup() {
+}
+
 verify_command_exists "envsubst"
 verify_command_exists "ar"
 verify_command_exists "gzip"
-defaults
+declare_vars
 parse_args
 builder_info
+
+build_data
+build_control
+make_archive
+cleanup
