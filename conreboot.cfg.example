@@ -7,19 +7,28 @@ REBOOT_TIMES=never
 
 # The TIME argument to pass to the shutdown command (see `man shutdown`)
 # Default of +1 (one minute delay until shutdown commences)
-SHUTDOWN_TIME=+0
+#SHUTDOWN_TIME=now
+
+# Stop /etc/nologin from being created, preventing logins when about to reboot.
+# The nologin file when SHUTDOWN_TIME is set greater than 0, and even then
+# it normally exists only for the last 5 minutes before the reboot.
+# Default: 0
+#PREVENT_NOLOGIN: 1
+
+# Insert a message into /etc/motd when a reboot is required, pending, or in progress.
+# Default: 0
+#UPDATE_MOTD: 1
 
 # How long a user must be idle (in minutes) before they are considered no longer active
 # Set to 0 to reboot while users are active
 # Default: 60
-PREVENT_ACTIVE_USER_MINUTES=30
+#PREVENT_ACTIVE_USER_MINUTES=30
 
-# Prevent a reboot if any of the following processes are detected running (comma delimited list)
-# Can be just the command name (rsync) or a specific command invocation (mysqldump -u root --all-databases)
+# Prevent a reboot if the specificed process is detected running. Can be just the
+# command name (rsync) or a specific command invocation (mysqldump -u root --all-databases)
 # If multiple definitions of this parameter are specified, they will all be evaluated.
 # Default: (nothing)
-PREVENT_PROCESSES=
-#PREVENT_PROCESSES=rsync,scp
+PREVENT_WHEN_PROCESS=
 
 # This bash command must return success (exit code 0) or a reboot will be prevented.
 # Note that this command should be able to be executed quickly, and repeatedly, as coreboot will

@@ -9,6 +9,8 @@
 
 VERSION=0.2.0
 SCRIPT_NAME=$( basename $0 )
+CONFIG_FILE=/etc/conreboot.cfg
+MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
 
 command_help() {
     echo ""
@@ -30,14 +32,17 @@ command_help() {
     echo "  -d | --daemon"
     echo "      Start up the daemon instance of conreboot which actually monitors"
     echo "      system state and will issue reboot commands."
+    echo "  -f | --config"
+    echo "      Specify an alternate config file. Default: $CONFIG_FILE"
     echo "  -h | --help"
     echo "      Display this message."
     echo ""
 }
 
-## Paths
-CONFIG_FILE=/etc/conreboot.cfg
-MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
+if [[ -z "$1" || $1 == "-h" || $1 == "--help" || $1 == "help" ]]; then
+    command_help
+    exit 0
+fi
 
 ## Colors
 CLR_RED='\033[0;31m'
@@ -52,11 +57,21 @@ CLR_WHITE='\033[1;37m'
 CLR_RESET='\033[0m'
 
 #######################################
-## Enable debug messages by setting DEBUG. E.g.
-##    DEBUG=1 conreboot
+## Is this a mock run (pre-shutdown scripts aren't run, no reboot will occur).
+##    MOCK=1 conreboot [FLAGS]
+mock_run() {
+    [[ "$MOCK" -eq 1 ]]
+    return $?
+}
+
+#######################################
+## Debug messages only displayed if DEBUG is set.
+##    DEBUG=1 conreboot [FLAGS]
 _debug() {
     if [[ $DEBUG -eq 1 ]]; then
-        1>&2 echo "$@"
+        PREFIX=
+        if mock_run; then PREFIX="Mock: "; fi
+        1>&2 echo "${PREFIX}$@"
     fi
 }
 
@@ -71,56 +86,57 @@ parse_args() {
     ARGS[DAEMON]=0
     ARGS[CANCEL]=0
 
-    PARSED=$( getopt -n conreboot -o smhdc --longoptions status,manual,help,daemon,cancel -- "$@" )
-    PARSE_OKAY=$?
-    if [ "${PARSE_OKAY}" -ne 0 ]; then
-      command_help
-      exit 1
-    fi
-
-    _debug "Parsed flags: ${PARSED}"
-    eval set -- "${PARSED}"
-    while test $# -gt 0; do
-      case "${1}" in
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
         -s|--status)
-          ARGS[STATUS]=1
-          shift
-          ;;
+            ARGS[STATUS]=1
+            shift
+            ;;
         -m|--manual)
-          ARGS[MANUAL]=1
-          shift
-          ;;
+            ARGS[MANUAL]=1
+            shift
+            ;;
         -c|--cancel)
-          ARGS[CANCEL]=1
-          shift
-          ;;
+            ARGS[CANCEL]=1
+            shift
+            ;;
         -d|--daemon)
-          ARGS[DAEMON]=1
-          shift
-          ;;
+            ARGS[DAEMON]=1
+            shift
+            ;;
+        -f|--config)
+            ARG_CONFIG=$( readlink -f $2 2> /dev/null )
+            if [[ ! -f "$ARG_CONFIG" || ! -r "$ARG_CONFIG" ]]; then
+                echo -e "${CLR_RED}FAILURE${CLR_RESET}: Could not read from: $ARG_CONFIG"
+                exit 1
+            fi
+            CONFIG_FILE="$ARG_CONFIG"
+            shift
+            shift
+            ;;
         -h|--help)
-          command_help
-          exit 0
-          ;;
-        --)
-          shift
-          break
-          ;;
+            command_help
+            exit 0
+            ;;
         *)
-          echo "Unknown argument: ${1}"
-          exit 1
-          ;;
-      esac
+            echo "Unknown argument: ${1}"
+            exit 1
+            ;;
+        esac
     done
 
-    # Check if no flags; if none, then display help
+    for ARG in "${!ARGS[@]}"; do
+        _debug "$ARG=${ARGS[$ARG]}"
+    done
+    _debug "CONFIG_FILE: $CONFIG_FILE"
+    # Check flags, issue failure if multiple
     FLAGS_CNT=0
     for ARG in ${ARGS[@]}; do
         FLAGS_CNT=$(( FLAGS_CNT + ARG ))
     done
-    if [[ $FLAGS_CNT -eq 0 ]]; then
-        command_help
-        exit 0
+    if [[ $FLAGS_CNT -ne 1 ]]; then
+        echo -e "${CLR_RED}FAILURE${CLR_RESET}: Only one flag allow from: status,manual,cancel,daemon "
+        exit 1
     fi
 }
 
@@ -141,23 +157,32 @@ get_distro_family() {
     echo "unknown"
 }
 
-#######################################
-## PARSE CONFIG FILE
-#######################################
-## Credit: Config file parsing and loading derived from cfgbackup
-## Source: https://github.com/natecollins/cfgbackup
-## Licence: MIT
-
 ###############################
 ## Creates an array of config variables with default values
 default_config() {
-    declare -g -A CONFIG
-    CONFIG[REBOOT_TIMES]=never
-    CONFIG[PREVENT_PROCESSES]=
-    CONFIG[PREVENT_ACTIVE_USER_MINUTES]=60
-    CONFIG[PREVENT_IF_SCRIPT_FAILS]=
-    CONFIG[SHUTDOWN_TIME]="+1"
-    CONFIG[PRE_SHUTDOWN_COMMAND]=
+    declare -g -a CONFIG_KEYS=(
+        REBOOT_TIMES
+        SHUTDOWN_TIME
+        PREVENT_NOLOGIN
+        UPDATE_MOTD
+        PREVENT_WHEN_PROCESS
+        PREVENT_ACTIVE_USER_MINUTES
+        PREVENT_IF_SCRIPT_FAILS
+        PRE_SHUTDOWN_COMMAND
+    )
+    declare -g -a ALLOW_MULTI=(
+        PREVENT_WHEN_PROCESS
+        PREVENT_IF_SCRIPT_FAILS
+        PRE_SHUTDOWN_COMMAND
+    )
+    declare -g REBOOT_TIMES=never
+    declare -g SHUTDOWN_TIME="+1"
+    declare -g PREVENT_NOLOGIN=0
+    declare -g UPDATE_MOTD=0
+    declare -g -a PREVENT_WHEN_PROCESS=()
+    declare -g PREVENT_ACTIVE_USER_MINUTES=60
+    declare -g -a PREVENT_IF_SCRIPT_FAILS=()
+    declare -g -a PRE_SHUTDOWN_COMMAND=()
 }
 
 ###############################
@@ -212,8 +237,6 @@ array_contains() {
 parse_config() {
     declare -a PARSE_ERRORS
     default_config
-    # Setting these to empty is allowed and the empty value will override the default value
-    ALLOWED_EMPTY=( PREVENT_PROCESSES PRE_SHUTDOWN_COMMAND )
 
     _debug "Attempting load of config: ${CONFIG_FILE}"
     # Verify config file exists and is readable
@@ -221,20 +244,22 @@ parse_config() {
         PARSE_ERRORS+=("Config file doesn't exist or isn't readable.")
     else
         # Parse config file for variables
-        for KEY in "${!CONFIG[@]}"; do
+        for KEY in "${CONFIG_KEYS[@]}"; do
             # Get variable values from config file
-            CONFIG_VALUE=$(config_param_get $CONFIG_FILE $KEY)
-            # If key is allowed to have an empty value, then do not set the default value
-            if array_contains ALLOWED_EMPTY "$KEY" && config_param_exists $CONFIG_FILE $KEY; then
-                : # do nothing
-            # If value is empty, leave as default
-            elif [[ $CONFIG_VALUE == "" ]]; then
-                CONFIG_VALUE=${CONFIG[$KEY]}
-            fi
-            # Update CONFIG values
-            CONFIG[$KEY]=$CONFIG_VALUE
+            while read -r CONFIG_VALUE; do
+                if [[ -z "$CONFIG_VALUE" ]]; then
+                    continue
+                fi
+                if array_contains ALLOW_MULTI "$KEY"; then
+                    UPDATE_CVAR="${KEY}+=(${CONFIG_VALUE})"
+                else
+                    UPDATE_CVAR="${KEY}=${CONFIG_VALUE}"
+                fi
 
-            _debug "Loaded from config: ${KEY}=${CONFIG_VALUE}"
+                eval "$UPDATE_CVAR"
+                _debug "Loaded from config: $UPDATE_CVAR"
+            done < <( config_param_get_all "$CONFIG_FILE" "$KEY" )
+            # If key is allowed to have an empty value, then do not set the default value
         done
     fi
 
@@ -244,6 +269,65 @@ parse_config() {
             echo $PARSE_MSG
         done
         exit 1
+    fi
+}
+
+#######################################
+## REBOOT STATUS
+#######################################
+
+SCHEDULED_SHUTDOWN=/run/systemd/shutdown/scheduled
+
+has_pending_shutdown() {
+    [[ -f "$SCHEDULED_SHUTDOWN" ]]
+    return $?
+}
+
+has_pending_reboot() {
+    has_pending_shutdown && grep -q "MODE=reboot" "$SCHEDULED_SHUTDOWN"
+    return $?
+}
+
+display_shutdown_time() {
+    source "$SCHEDULED_SHUTDOWN" 2> /dev/null
+    UNIXTIME="${USEC::-6}"
+    date "--date=@$UNIXTIME"
+}
+
+clear_motd_tag() {
+    MOTD_TAG="$1"
+    if [[ -f /etc/motd ]]; then
+        sed -i "/^conreboot-${MOTD_TAG}:/d" /etc/motd
+    fi
+}
+
+clear_motd() {
+    clear_motd_tag "active"
+    clear_motd_tag "waiting"
+}
+
+set_motd_tag() {
+    MOTD_TAG="$1"
+    MOTD_MSG="$2"
+    FULL_MSG="conreboot-${MOTD_TAG}: ${MOTD_MSG}"
+    if grep -q "$FULL_MSG" /etc/motd 2> /dev/null; then
+        return
+    fi
+    clear_motd_tag "$MOTD_TAG"
+    echo "$FULL_MSG" >> /etc/motd
+}
+
+update_motd() {
+    if [[ "$UPDATE_MOTD" -eq 1 ]]; then
+        if has_pending_reboot; then
+            set_motd_tag "active" "A reboot is scheduled for $( display_shutdown_time )"
+        elif has_pending_shutdown; then
+            set_motd_tag "active" "A shutdown is scheduled for $( display_shutdown_time )"
+        fi
+
+        if need_to_reboot; then
+            set_motd_tag "waiting" "A reboot is pending. Reboot window(s): ${REBOOT_TIMES}"
+        fi
     fi
 }
 
@@ -272,7 +356,7 @@ time_to_minutes() {
 is_reboot_time() {
     local TIME_PERIODS PERIOD RANGE_START RANGE_END NOW
     IS_REBOOT_TIME=1
-    IFS=',' read -ra TIME_PERIODS <<< "${CONFIG[REBOOT_TIMES]}"
+    IFS=',' read -ra TIME_PERIODS <<< "${REBOOT_TIMES}"
     for PERIOD in "${TIME_PERIODS[@]}"; do
         if ! [[ $PERIOD =~ ^${TIME_REGEX}-${TIME_REGEX}$ ]]; then
             echo "Bad time period: ${PERIOD@Q}." >&2
@@ -293,16 +377,14 @@ is_reboot_time() {
 
 no_prohibited_process() {
     PROC_FOUND=0
-    while read -r CONF_LINE; do
-        IFS=',' read -ra PROC_LIST <<< "${CONF_LINE}"
-        for PROC in "${PROC_LIST[@]}"; do
-            pgrep -f -- "${PROC}" > /dev/null
-            if [[ $? -eq 0 ]]; then
-                PROC_FOUND=1
-                break 2
-            fi
-        done
-    done < <( config_param_get_all "$CONFIG_FILE" "PREVENT_PROCESSES" )
+    for PWP in "${PREVENT_WHEN_PROCESS[@]}"; do
+        pgrep -f -- "${PWP}" > /dev/null
+        if [[ $? -eq 0 ]]; then
+            _debug "Found prohibited process matching: $PROC"
+            PROC_FOUND=1
+            break
+        fi
+    done
     _debug "Prohibited processes? ${PROC_FOUND}"
     return ${PROC_FOUND}
 }
@@ -314,20 +396,20 @@ no_active_users() {
     who -s | awk '{ print $2 }' |
         grep -v "${SELF_TTY}" |
         (cd /dev && xargs -r -- stat -c %X --) |
-        awk -v STALE=${CONFIG[PREVENT_ACTIVE_USER_MINUTES]} -v NOW="$(date +%s)" '{ if ((NOW - $1) / 60 < STALE) exit 1; }'
+        awk -v STALE=${PREVENT_ACTIVE_USER_MINUTES} -v NOW="$(date +%s)" '{ if ((NOW - $1) / 60 < STALE) exit 1; }'
     NO_ACTIVE_USERS=$?
     _debug "Active users? ${NO_ACTIVE_USERS}"
     return ${NO_ACTIVE_USERS}
 }
 
 check_prescript_success() {
-    SCRIPT_EXIT=0
-    if ! [[ -z "${CONFIG[PREVENT_IF_SCRIPT_FAILS]}" ]]; then
-        eval "${CONFIG[PREVENT_IF_SCRIPT_FAILS]}"
-        # TODO add support for allowing multple prevent-if-script-fails parameters
+    for PISF in "${PREVENT_IF_SCRIPT_FAILS[@]}"; do
+        eval "${PISF}"
         SCRIPT_EXIT=$?
-    fi
-    return ${SCRIPT_EXIT}
+        if [[ "$SCRIPT_EXIT" -ne 0 ]]; then
+            return "$SCRIPT_EXIT"
+        fi
+    done
 }
 
 need_to_reboot() {
@@ -353,13 +435,15 @@ queued_reboot() {
 ## REBOOT TRIGGER FUNCTIONS
 #######################################
 require_root() {
-    if [[ ${EUID} -ne 0 ]]; then
+    if mock_run; then return; fi
+    if [[ "$EUID" -ne 0 ]]; then
         echo -e "${CLR_YELLOW}NOTE${CLR_RESET}: The conreboot script requires you run as the root user."
         exit 1
     fi
 }
 
 config_is_root() {
+    if mock_run; then return; fi
     if [[ ! -O "${CONFIG_FILE}" || ! -G "${CONFIG_FILE}" ]]; then
         echo -e "${CLR_RED}WARNING${CLR_RESET}: Config file must be owned and editable only by root user."
         exit 1
@@ -375,7 +459,7 @@ check_already_running() {
 }
 
 check_never_reboot() {
-    if [[ "${CONFIG[REBOOT_TIMES],,}" == "never" ]]; then
+    if [[ "${REBOOT_TIMES,,}" == "never" ]]; then
         echo -e "Conditional rebooting is set to 'never' for this host."
         exit 0;
     fi
@@ -387,46 +471,76 @@ check_reboot() {
         is_reboot_time && \
         no_prohibited_process && \
         no_active_users && \
-        check_prescript_success; then
+        check_prescript_success && \
+        ! has_pending_shutdown; then
             _debug "All reboot checks passed!"
             REBOOT_OKAY=1
     fi
 }
 
+remove_nologin() {
+    if [[ "$PREVENT_NOLOGIN" -eq 1 && -f /etc/nologin ]]; then
+        rm /etc/nologin
+    fi
+}
+
+dummy_sleep() {
+    # Using read timeout to prevent ugly sleep processes
+    coproc read -t "$1" DUMMY && wait "$!" || true
+}
+
 daemon_loop() {
+    declare -g REBOOT_OKAY=0
+    check_reboot
+    check_shutting_down
+
+    if has_pending_shutdown; then
+        _debug "Monitoring scheduled shutdown"
+        update_motd
+    fi
+    while has_pending_shutdown; do
+        remove_nologin
+        dummy_sleep 1 2> /dev/null
+        check_shutting_down
+    done
+
+    while [[ "${REBOOT_OKAY}" -eq 0 ]]; do
+        _debug "Sleeping for 1 minute"
+        update_motd
+        dummy_sleep 60 2> /dev/null
+        check_reboot
+    done
+
+    if [[ "${REBOOT_OKAY}" -eq 1 ]]; then
+        do_pre_shutdown
+        _debug "Initiating reboot command: shutdown -h ${SHUTDOWN_TIME}"
+        echo -e "Scheduling reboot at time: ${SHUTDOWN_TIME}"
+        do_shutdown
+    fi
+}
+
+do_pre_shutdown() {
+    for PSC in "${PRE_SHUTDOWN_COMMAND[@]}"; do
+        _debug "Running pre-shutdown: ${PSC}"
+        if mock_run; then continue; fi
+        eval "${PSC}"
+    done
+}
+
+do_shutdown() {
+    _debug "shutdown -r ${SHUTDOWN_TIME}"
+    if mock_run; then return; fi
+    shutdown -r "${SHUTDOWN_TIME}"
+}
+
+command_daemon() {
     # Skip if not daemon
     if ! [[ ${ARGS[DAEMON]} -eq 1 ]]; then
         return 0
     fi
 
     _debug "Starting conreboot as daemon"
-    declare -g REBOOT_OKAY
-    REBOOT_OKAY=0
-    check_reboot
-
-    while [[ ${REBOOT_OKAY} -eq 0 ]]; do
-        _debug "Sleeping for 1 minute"
-        # Using read timeout to prevent ugly sleep processes
-        coproc read -t 60 DUMMY && wait "$!" || true
-        check_reboot
-        # TODO if a reboot is needed/scheduled, add a temporary addition to MOTD indicating that a reboot is needed and when the reboot window is
-        # TODO add a config setting to disable MOTD modifications
-    done
-
-    if [[ ${REBOOT_OKAY} -eq 1 ]]; then
-        if ! [[ -z "${CONFIG[PRE_SHUTDOWN_COMMAND]}" ]]; then
-            _debug "Running pre-shutdown: ${CONFIG[PRE_SHUTDOWN_COMMAND]}"
-            # TODO allow multiple pre-shutdown-commands
-            eval ${CONFIG[PRE_SHUTDOWN_COMMAND]}
-        fi
-        _debug "Initiating reboot command: shutdown -h ${CONFIG[SHUTDOWN_TIME]}"
-        echo -e "Scheduling reboot at time: ${CONFIG[SHUTDOWN_TIME]}"
-        shutdown -r ${CONFIG[SHUTDOWN_TIME]}
-        # TODO remove /etc/nologin
-        # TODO add a temporary addition to MOTD to indicate when the node is scheduled for a reboot, indicating the time it will happen
-        # TODO add a config setting to disable MOTD modifications
-    fi
-    exit 0
+    while true; do daemon_loop; done
 }
 
 command_status() {
@@ -459,25 +573,39 @@ command_status() {
     STATE_FALSE="${CLR_ORANGE}False${CLR_RESET}"
 
     DAEMON_PID=$( systemctl show --property MainPID --value conreboot )
-    echo -e "Is conreboot Daemon Running:  $( [[ ${DAEMON_PID} -ne 0 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
+    echo -e "Is Daemon Running:           $( [[ ${DAEMON_PID} -ne 0 ]] && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     if [[ "${DAEMON_PID}" -ne 0 ]]; then
         echo -e "Daemon PID:                  ${DAEMON_PID}"
     fi
     echo -e "Needs System Reboot:         $( need_to_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
     echo -e "Manual Reboot Queued:        $( queued_reboot && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
-
-    echo -e "${CLR_BLUE}CONDITIONS${CLR_RESET}"
-    echo -e "  REBOOT_TIMES"
-    echo -e "    Value:      ${CLR_WHITE}${CONFIG[REBOOT_TIMES]}${CLR_RESET}"
+    if has_pending_reboot; then
+        echo -e "Scheduled reboot at:         ${CLR_RED}$( display_shutdown_time )${CLR_RESET}"
+    elif has_pending_shutdown; then
+        echo -e "Scheduled shutdown at:       ${CLR_RED}$( display_shutdown_time )${CLR_RESET}"
+    fi
+    echo -e "${CLR_WHITE}Conditions:${CLR_RESET}"
+    echo -e "  ${CLR_CYAN}REBOOT_TIMES${CLR_RESET}"
+    echo -e "    Value:      ${CLR_WHITE}${REBOOT_TIMES}${CLR_RESET}"
     echo -e "    Reboot Ok:  $( is_reboot_time && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
-    echo -e "  PREVENT_ACTIVE_USER_MINUTES"
-    echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_ACTIVE_USER_MINUTES]}${CLR_RESET}"
+    echo -e "  ${CLR_CYAN}PREVENT_ACTIVE_USER_MINUTES${CLR_RESET}"
+    echo -e "    Value:      ${CLR_WHITE}${PREVENT_ACTIVE_USER_MINUTES}${CLR_RESET}"
     echo -e "    Reboot Ok:  $( no_active_users && echo "$STATE_TRUE" || echo "$STATE_FALSE" ) ${CLR_PURPLE}(excluding your current session)${CLR_RESET}"
-    echo -e "  PREVENT_PROCESSES"
-    echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_PROCESSES]}${CLR_RESET}"
+    echo -e "  ${CLR_CYAN}PREVENT_WHEN_PROCESS${CLR_RESET}"
+    for PWP in "${PREVENT_WHEN_PROCESS[@]}"; do
+        echo -e "    Value:      ${CLR_WHITE}${PWP}${CLR_RESET}"
+    done
+    if [[ "${#PREVENT_WHEN_PROCESS[@]}" -eq 0 ]]; then
+        echo -e "    Value:      ${CLR_PURPLE}(empty)${CLR_RESET}"
+    fi
     echo -e "    Reboot Ok:  $( no_prohibited_process && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
-    echo -e "  PREVENT_IF_SCRIPT_FAILS"
-    echo -e "    Value:      ${CLR_WHITE}${CONFIG[PREVENT_IF_SCRIPT_FAILS]}${CLR_RESET}"
+    echo -e "  ${CLR_CYAN}PREVENT_IF_SCRIPT_FAILS${CLR_RESET}"
+    for PISF in "${PREVENT_IF_SCRIPT_FAILS[@]}"; do
+        echo -e "    Value:      ${CLR_WHITE}${PISF}${CLR_RESET}"
+    done
+    if [[ "${#PREVENT_IF_SCRIPT_FAILS[@]}" -eq 0 ]]; then
+        echo -e "    Value:      ${CLR_PURPLE}(empty)${CLR_RESET}"
+    fi
     echo -e "    Reboot Ok:  $( check_prescript_success && echo "$STATE_TRUE" || echo "$STATE_FALSE" )"
 }
 
@@ -517,6 +645,7 @@ command_cancel() {
             echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to unset a scheduled conreboot."
             exit 1
         fi
+        # If reboot, was already scheduled
     else
         echo -e "${CLR_BLUE}SKIPPED${CLR_RESET}: There is no manually scheuduled conreboot to stop."
     fi
@@ -535,4 +664,4 @@ check_never_reboot
 command_status
 command_manual
 command_cancel
-daemon_loop
+command_daemon
