@@ -120,3 +120,11 @@ Multiple definitions are allowed.
 PRE_SHUTDOWN_COMMAND="killall -9 troublesome_processes"
 PRE_SHUTDOWN_COMMAND="/usr/local/bin/send_notifications"
 ```
+
+Copyright
+------------------
+Copyright (c) 2020 by Michigan State University Board of Trustees
+
+License
+------------------
+MIT License

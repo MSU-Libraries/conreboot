@@ -3,5 +3,4 @@ Description=Conditional reboot service
 
 [Service]
 Type=simple
-#Environment="DEBUG=1"
-ExecStart=/usr/local/sbin/conreboot --daemon
+ExecStart=/usr/sbin/conreboot --daemon

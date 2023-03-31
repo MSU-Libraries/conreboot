@@ -354,6 +354,7 @@ time_to_minutes() {
 }
 
 is_reboot_time() {
+    if no_reboot_times; then return 1; fi
     local TIME_PERIODS PERIOD RANGE_START RANGE_END NOW
     IS_REBOOT_TIME=1
     IFS=',' read -ra TIME_PERIODS <<< "${REBOOT_TIMES}"
@@ -458,11 +459,9 @@ check_already_running() {
     fi
 }
 
-check_never_reboot() {
-    if [[ "${REBOOT_TIMES,,}" == "never" ]]; then
-        echo -e "Conditional rebooting is set to 'never' for this host."
-        exit 0;
-    fi
+no_reboot_times() {
+    [[ -z "${REBOOT_TIMES}" || "${REBOOT_TIMES,,}" == "never" ]]
+    return $?
 }
 
 check_reboot() {
@@ -480,6 +479,7 @@ check_reboot() {
 
 remove_nologin() {
     if [[ "$PREVENT_NOLOGIN" -eq 1 && -f /etc/nologin ]]; then
+        _debug "Removing /etc/nologin"
         rm /etc/nologin
     fi
 }
@@ -492,7 +492,6 @@ dummy_sleep() {
 daemon_loop() {
     declare -g REBOOT_OKAY=0
     check_reboot
-    check_shutting_down
 
     if has_pending_shutdown; then
         _debug "Monitoring scheduled shutdown"
@@ -501,7 +500,6 @@ daemon_loop() {
     while has_pending_shutdown; do
         remove_nologin
         dummy_sleep 1 2> /dev/null
-        check_shutting_down
     done
 
     while [[ "${REBOOT_OKAY}" -eq 0 ]]; do
@@ -569,6 +567,10 @@ command_status() {
         fi
     fi
 
+    if no_reboot_times; then
+        echo -e "${CLR_RED}WARNING${CLR_RESET}: Allowed reboot time is 'never' or empty for this host."
+    fi
+
     STATE_TRUE="${CLR_GREEN}True${CLR_RESET}"
     STATE_FALSE="${CLR_ORANGE}False${CLR_RESET}"
 
@@ -613,6 +615,10 @@ command_manual() {
     # Skip if not manual flag
     if ! [[ ${ARGS[MANUAL]} -eq 1 ]]; then
         return 0
+    fi
+
+    if no_reboot_times; then
+        echo -e "${CLR_RED}WARNING${CLR_RESET}: Allowed reboot time is 'never' or empty for this host."
     fi
 
     DAEMON_PID=$( systemctl show --property MainPID --value conreboot )
@@ -661,7 +667,6 @@ parse_args "$@"
 config_is_root
 check_already_running
 parse_config
-check_never_reboot
 command_status
 command_manual
 command_cancel

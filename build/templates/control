@@ -1,4 +1,4 @@
-Package: conreboot
+Package: $PKG_NAME
 Version: $VERSION
 Architecture: all
 Maintainer: $PKGBLD_NAME <$PKGBLD_EMAIL>

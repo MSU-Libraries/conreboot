@@ -1,2 +1,3 @@
-*.swp
-coreboot.cfg
+.*.sw[po]
+conreboot.cfg
+build/dist/

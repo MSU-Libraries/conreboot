@@ -1,0 +1,7 @@
+#!/bin/sh
+if [ "$1" = remove ]; then
+    systemctl daemon-reload
+fi
+if [ "$1" = purge ]; then
+    rm -f /etc/conreboot.cfg
+fi

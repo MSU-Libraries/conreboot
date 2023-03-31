@@ -1,0 +1,12 @@
+[Unit]
+Description=Start conreboot service delayed after boot
+
+[Timer]
+Unit=conreboot.service
+# Delay service 10 minutes to avoid constant reboot in case of misconfiguration or bug
+OnBootSec=10min
+# Restart daemon after a delay if something stops it
+OnUnitInactiveSec=20min
+
+[Install]
+WantedBy=timers.target

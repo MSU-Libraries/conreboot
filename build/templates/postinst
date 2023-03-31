@@ -1,0 +1,9 @@
+#!/bin/sh
+if [ "$1" = configure ]; then
+    if [ ! -f /etc/conreboot.cfg ]; then
+        cp /usr/share/doc/conreboot/conreboot.cfg /etc/conreboot.cfg
+    fi
+    systemctl daemon-reload
+    systemctl enable --now conreboot.timer
+    systemctl start conreboot.service
+fi
