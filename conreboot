@@ -8,7 +8,7 @@
 #
 
 VERSION=0.2.0
-SCRIPT_NAME=$( basename $0 )
+SCRIPT_NAME=$( basename "$0" )
 CONFIG_FILE=/etc/conreboot.cfg
 MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
 
@@ -52,7 +52,6 @@ CLR_BLUE='\033[1;34m'
 CLR_YELLOW='\033[1;33m'
 CLR_PURPLE='\033[0;35m'
 CLR_CYAN='\033[0;36m'
-CLR_GRAY='\033[0;37m'
 CLR_WHITE='\033[1;37m'
 CLR_RESET='\033[0m'
 
@@ -71,7 +70,7 @@ _debug() {
     if [[ $DEBUG -eq 1 ]]; then
         PREFIX=
         if mock_run; then PREFIX="Mock: "; fi
-        1>&2 echo "${PREFIX}$@"
+        1>&2 echo "${PREFIX}$*"
     fi
 }
 
@@ -105,7 +104,7 @@ parse_args() {
             shift
             ;;
         -f|--config)
-            ARG_CONFIG=$( readlink -f $2 2> /dev/null )
+            ARG_CONFIG=$( readlink -f "$2" 2> /dev/null )
             if [[ ! -f "$ARG_CONFIG" || ! -r "$ARG_CONFIG" ]]; then
                 echo -e "${CLR_RED}FAILURE${CLR_RESET}: Could not read from: $ARG_CONFIG"
                 exit 1
@@ -131,7 +130,7 @@ parse_args() {
     _debug "CONFIG_FILE: $CONFIG_FILE"
     # Check flags, issue failure if multiple
     FLAGS_CNT=0
-    for ARG in ${ARGS[@]}; do
+    for ARG in "${ARGS[@]}"; do
         FLAGS_CNT=$(( FLAGS_CNT + ARG ))
     done
     if [[ $FLAGS_CNT -ne 1 ]]; then
@@ -145,8 +144,8 @@ parse_args() {
 ## system if this system family is compatible with conreboot
 ## Prints "unknown" if not found or not compatible.
 get_distro_family() {
-    eval $( grep -E '^(ID|ID_LIKE)' /etc/os-release )
-    FAMILIES=(${ID} ${ID_LIKE})
+    eval "$( grep -E '^(ID|ID_LIKE)' /etc/os-release )"
+    FAMILIES=("${ID}" "${ID_LIKE}")
     COMPAT_FAMILIES=(debian rhel)
     for COMPAT in "${COMPAT_FAMILIES[@]}"; do
         if array_contains FAMILIES "${COMPAT}"; then
@@ -187,31 +186,13 @@ default_config() {
 }
 
 ###############################
-## Parse a value for a given config line
+## Parse a value for a given config line, returning all matches, one per line
 ##  $1 -> File to search
 ##  $2 -> Name of parameter to get value for
 ## Prints the string value, or empty string if not found.
 ## If multiple matching parameters exist, only the last defined is output.
-config_param_get() {
-    grep -E "^ *$2 *=" $1 | tail -n 1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
-}
-###############################
-# Same as config_param_get, but returns all matching parameters, one per line
 config_param_get_all() {
-    grep -E "^ *$2 *=" $1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
-}
-
-###############################
-## Parse config to check if a given parameter exists
-##  $1 -> File to search
-##  $2 -> Name of parameter to get value for
-## Returns 0 if the parameter exists in the file, 1 if it does not
-config_param_exists() {
-    PARAM_FOUND=$( grep -E "^ *$2 *=" $1 )
-    if [[ $PARAM_FOUND != "" ]]; then
-        return 0
-    fi
-    return 1
+    grep -E "^ *$2 *=" "$1" | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//'
 }
 
 ###############################
@@ -220,11 +201,11 @@ config_param_exists() {
 ##  $2 -> Value to find
 ## Returns 0 if an element matches the value to find
 array_contains() {
-    local ARRNAME=$1[@]
+    local ARRNAME="$1[@]"
     local HAYSTACK=( ${!ARRNAME} )
     local NEEDLE="$2"
     for VAL in "${HAYSTACK[@]}"; do
-        if [[ $NEEDLE == $VAL ]]; then
+        if [[ "$NEEDLE" == "$VAL" ]]; then
             return 0
         fi
     done
@@ -268,10 +249,10 @@ parse_config() {
         done
     fi
 
-    if [[ ${#PARSE_ERRORS[@]} -ne 0 ]]; then
+    if [[ "${#PARSE_ERRORS[@]}" -ne 0 ]]; then
         echo -e "${CLR_RED}FAILURE${CLR_RESET}: Could not parse config file: $CONFIG_FILE"
         for PARSE_MSG in "${PARSE_ERRORS[@]}"; do
-            echo $PARSE_MSG
+            echo "$PARSE_MSG"
         done
         exit 1
     fi
@@ -567,13 +548,13 @@ command_status() {
     fi
 
     if [[ ${FAMILY} == "debian" ]]; then
-        dpkg -l update-notifier 2> /dev/null 1> /dev/null
+        dpkg -l update-notifier > /dev/null 2>&1
         if [[ $? -ne 0 ]]; then
             echo -e "${CLR_RED}FAILURE${CLR_RESET}: Debian/Ubuntu conreboot requires the update-notifier package to be installed."
             exit 1
         fi
     elif [[ ${FAMILY} == "rhel" ]]; then
-        rpm -q yum-utils 2>&1 > /dev/null
+        rpm -q yum-utils > /dev/null 2>&1
         if [[ $? -ne 0 ]]; then
             echo -e "${CLR_RED}FAILURE${CLR_RESET}: RHEL/Rocky conreboot requires the yum-utils package to be installed."
             exit 1
@@ -660,8 +641,7 @@ command_cancel() {
 
     warn_if_config_changed
     if [[ -f "${MANUAL_REBOOT_INDICATOR}" ]]; then
-        rm "${MANUAL_REBOOT_INDICATOR}"
-        if [[ $? -eq 0 ]]; then
+        if rm "${MANUAL_REBOOT_INDICATOR}"; then
             echo -e "${CLR_GREEN}SUCCESS${CLR_RESET}: A manually scheduled conreboot has been cancelled."
         else
             echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to unset a scheduled conreboot."
