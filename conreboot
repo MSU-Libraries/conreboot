@@ -160,6 +160,7 @@ get_distro_family() {
 ###############################
 ## Creates an array of config variables with default values
 default_config() {
+    declare -g CONFIG_HASH=
     declare -g -a CONFIG_KEYS=(
         REBOOT_TIMES
         SHUTDOWN_TIME
@@ -230,6 +231,10 @@ array_contains() {
     return 1
 }
 
+config_hash() {
+    md5sum "$CONFIG_FILE" | awk '{ print $1 }'
+}
+
 ###############################
 ## Parse config file given
 ## Returns 0 on success, 1 on error
@@ -270,6 +275,7 @@ parse_config() {
         done
         exit 1
     fi
+    CONFIG_HASH=$( config_hash )
 }
 
 #######################################
@@ -459,6 +465,13 @@ check_already_running() {
     fi
 }
 
+warn_if_config_changed() {
+    CURRENT_HASH=$( config_hash )
+    if [[ "$CURRENT_HASH" != "${CONFIG_HASH}" ]]; then
+        echo -e "${CLR_RED}WARNING${CLR_RESET}: Config file has changed. Restart conreboot service for changes to take effect."
+    fi
+}
+
 no_reboot_times() {
     [[ -z "${REBOOT_TIMES}" || "${REBOOT_TIMES,,}" == "never" ]]
     return $?
@@ -567,6 +580,7 @@ command_status() {
         fi
     fi
 
+    warn_if_config_changed
     if no_reboot_times; then
         echo -e "${CLR_RED}WARNING${CLR_RESET}: Allowed reboot time is 'never' or empty for this host."
     fi
@@ -617,6 +631,7 @@ command_manual() {
         return 0
     fi
 
+    warn_if_config_changed
     if no_reboot_times; then
         echo -e "${CLR_RED}WARNING${CLR_RESET}: Allowed reboot time is 'never' or empty for this host."
     fi
@@ -643,6 +658,7 @@ command_cancel() {
         return 0
     fi
 
+    warn_if_config_changed
     if [[ -f "${MANUAL_REBOOT_INDICATOR}" ]]; then
         rm "${MANUAL_REBOOT_INDICATOR}"
         if [[ $? -eq 0 ]]; then
@@ -654,8 +670,10 @@ command_cancel() {
     else
         echo -e "${CLR_BLUE}SKIPPED${CLR_RESET}: There is no manually scheuduled conreboot to stop."
     fi
-    # Stop reboot, if it was already scheduled
-    shutdown -c
+    # Stop reboot if it was already scheduled
+    if has_pending_reboot; then
+        shutdown -c
+    fi
 }
 
 #########################
