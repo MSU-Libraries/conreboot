@@ -1,10 +1,11 @@
 [Unit]
-Description=Start coreboot service delayed after boot
+Description=Start conreboot service delayed after boot
 
 [Timer]
-# Delay coreboot by 10 minutes to prevent constant reboot in case of bug or misconfiguration
+# Delay conreboot by 10 minutes to prevent constant reboot in case of misconfiguration or bug
 OnBootSec=10min
-# If coreboot service exits, restart after a while; to not leave service stopped in case coreboot shutdown is canceled
+# If coreboot service exits, ensure the service restarts after a while
+# as to not leave service stopped in case coreboot shutdown is canceled
 OnUnitInactiveSec=60min
 
 [Install]

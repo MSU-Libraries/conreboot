@@ -1,7 +1,7 @@
 [Unit]
-Description=Monitor for conditions to reboot the system
+Description=Conditional reboot service
 
 [Service]
 Type=simple
 #Environment="DEBUG=1"
-ExecStart=/usr/local/sbin/coreboot --daemon
+ExecStart=/usr/local/sbin/conreboot --daemon

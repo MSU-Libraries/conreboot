@@ -645,10 +645,11 @@ command_cancel() {
             echo -e "${CLR_RED}FAILURE${CLR_RESET}: Unable to unset a scheduled conreboot."
             exit 1
         fi
-        # If reboot, was already scheduled
     else
         echo -e "${CLR_BLUE}SKIPPED${CLR_RESET}: There is no manually scheuduled conreboot to stop."
     fi
+    # Stop reboot, if it was already scheduled
+    shutdown -c
 }
 
 #########################

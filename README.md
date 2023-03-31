@@ -22,18 +22,21 @@ The `conreboot` command is central to the service. It has the following flags:
 * `--manual/-m` Schedule a manual conreboot to happen as soon as all conditions are safe, even if the server does not indicate the need to reboot.
 * `--cancel/-c` Cancel a scheduled manual conreboot.
 * `--daemon/-d` Start as a conreboot daemon; used by the systemd service unit.
+* `--config/-f FILE` Use alternate `FILE` instead of default config file.
 
 ## The Config File: /etc/conreboot.cfg
 Each host machine the conditional reboot script will be run on must have a config file setup
 or the script will do nothing and exit.  
 
-The config should be placed at: `/etc/conreboot.cfg` (see the `TODO/PATH/conreboot.cfg.example`).  
+The config should be placed at: `/etc/conreboot.cfg` (example at `/usr/share/doc/conreboot/conreboot.cfg`).  
 
 The config has following settings:  
  * [`REBOOT_TIMES`](#reboot_times)
  * [`SHUTDOWN_TIME`](#shutdown_time)
+ * [`PREVENT_NOLOGIN`](#prevent_nologin)
+ * [`UPDATE_MOTD`](#update_motd)
  * [`PREVENT_ACTIVE_USER_MINUTES`](#prevent_active_user_minutes)
- * [`PREVENT_PROCESSES`](#prevent_processes) (multiples allowed)
+ * [`PREVENT_WHEN_PROCESS`](#prevent_when_process) (multiples allowed)
  * [`PREVENT_IF_SCRIPT_FAILS`](#prevent_if_script-fails) (multiples allowed)
  * [`PRE_SHUTDOWN_COMMAND`](#pre_shutdown_command) (multiples allowed)
 
@@ -58,6 +61,25 @@ SHUTDOWN_TIME=now
 SHUTDOWN_TIME=+5
 ```
 
+### PREVENT_NOLOGIN
+Default: `0`  
+When rebooting with a SHUTDOWN_TIME that is not immediate, the
+system will prevent new logins within the last 5 minutes before
+reboot. Setting this config setting to 1 will have conreboot
+remove the /etc/nologin file which normally would prevent those logins.
+```
+PREVENT_NOLOGIN=1
+```
+
+### UPDATE_MOTD
+Default: `0`  
+Setting this value to 1 will have conreboot add messages into the
+login message-of-the-day when a reboot in needed, or if a reboot
+is actively scheuduled.
+```
+UPDATE_MOTD=1
+```
+
 ### PREVENT_ACTIVE_USER_MINUTES
 Default: `60`  
 Prevent reboot if there are active users logged in, where an active user is those who have terminal
@@ -68,22 +90,22 @@ PREVENT_ACTIVE_USER_MINUTES=120
 PREVENT_ACTIVE_USER_MINUTES=0
 ```
 
-### PREVENT_PROCESSES
+### PREVENT_WHEN_PROCESS
 Default: nothing  
-Prevent reboot if the listed process(es) are running. Multiple processes may be specified as part
-of a comma-delimited list. This can list just the process or the process with flags.  
+Prevent reboot if the listed process is running. This can list just the process
+or the process with flags.  
+Multiple definitions are allowed.  
 ```
 # Examples:
-PREVENT_PROCESSES=rsync,mysqldump
-PREVENT_PROCESSES=mycommand --with-fl -ags
+PREVENT_WHEN_PROCESS=mysqldump
+PREVENT_WHEN_PROCESS=rsync -av --del /var/
 ```
 
 ### PREVENT_IF_SCRIPT_FAILS
 Default: nothing  
-Prevent reboot is the given script or Bash shell command returns anything other than 0. Will do nothing if
-value is empty.  
-Note that this command should be able to be executed quickly, and repeatedly, as the conditional reboot may
-continually run this command every minute while waiting to reboot.  
+Prevent reboot is the given script or Bash shell command returns anything other than 0. Will do nothing if value is empty.  
+Note that this command should be able to be executed quickly, and repeatedly, as the conditional reboot may continually run this command every minute while waiting to reboot.  
+Multiple definitions are allowed.  
 ```
 PREVENT_IF_SCRIPT_FAILS="! [[ -f /tmp/my_service.lock ]]"
 PREVENT_IF_SCRIPT_FAILS="/usr/local/bin/safe_to_reboot.sh"
@@ -93,6 +115,7 @@ PREVENT_IF_SCRIPT_FAILS="/usr/local/bin/safe_to_reboot.sh"
 Default: nothing  
 When set, this script or Bash shell command will run just prior to the `shutdown` command. The `shutdown`
 command will commence regardess of the exit code of this command.  
+Multiple definitions are allowed.  
 ```
 PRE_SHUTDOWN_COMMAND="killall -9 troublesome_processes"
 PRE_SHUTDOWN_COMMAND="/usr/local/bin/send_notifications"

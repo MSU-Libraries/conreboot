@@ -1,6 +1,6 @@
-.TH "coreboot" "1" "30 Dec 2020" "" ""
+.TH "conreboot" "1" "30 Mar 2023" "" ""
 .SH "NAME"
-coreboot \- the conditional rebooter
+conreboot \- the conditional rebooter
 
 .SH "SYNOPSIS"
 .B corebooot
@@ -8,7 +8,7 @@ coreboot \- the conditional rebooter
 
 .SH "DESCRIPTION"
 .PP
-coreboot is a service that will automatically reboot your system
+conreboot is a service that will automatically reboot your system
 when requires it, but only when certain conditions are met.
 To signal an need for automatic reboot, the system must have library
 or kernel that requires a reboot to load. See REQUIREMENTS.
@@ -29,7 +29,7 @@ would otherwise be considered.
 Display a help message about the command and flags.
 .TP
 .B -s / --status
-Display the status of coreboot, if any reboot is pending, and
+Display the status of conreboot, if any reboot is pending, and
 the status of each condition.
 .TP
 .B -m / --manual
@@ -40,26 +40,29 @@ not indicate a requirement to do so.
 Cancel a manually scheduled conditional reboot.
 .TP
 .B -d / --daemon
-Start coreboot as a daemon. This is the flag used by the
-coreboot systemd service and should not need to be manually used.
+Start conreboot as a daemon. This is the flag used by the
+conreboot systemd service and should not need to be manually used.
+.TP
+.B -f / --config FILE
+Specify an alternate config file to load in place of the default.
 
 .SH "REQUIREMENTS"
 .TP
-A number of packages are required for coreboot to work.
+A number of packages are required for conreboot to work.
 .PP
 On Debian family distros:  update-notifier
 .PP
 On RHEL/Fedora distros:  yum-utils
 .PP
-On all systems: bash systemd perl awk grep pgrep procps findutils coreutils
+On all systems: bash systemd awk grep pgrep procps findutils coreutils
 
 .SH "CONFIG"
 .PP
-Before coreboot will run, it requires a config file to specify the
+Before conreboot will run, it requires a config file to specify the
 conditions under which it will reboot.
 .PP
 .B
-/etc/coreboot.cfg
+/etc/conreboot.cfg
 .PP
 Settings in the config file are as follows:
 
@@ -68,18 +71,35 @@ Settings in the config file are as follows:
 This sets the allowed times when a reboot can occur. Format is a
 comma-delimited list of time ranges. Times are in the format such
 as 3am-7:30am or 11:30pm-2:30am. When set to never, conditional
-reboot requests will never be allowed and the coreboot will exit
+reboot requests will never be allowed and the conreboot will exit
 with code 0
 .IP
 Default: never
 
 .TP
-.B PREVENT_PROCESSES
-Prevent reboot if the listed process(es) are running. Multiple
-processes may be specified as part of a comma-delimited list.
-This can list just the process or the process with flags.
+.B SHUTDOWN_TIME
+Sets the TIME argument to the shutdown command. Default is 1 minute
+warning before shutdown commences. Setting to +0 or now will result
+in immediate shutdown once it is determined to be okay to reboot.
 .IP
-Default: (nothing)
+Default: +1
+
+.TP
+.B PREVENT_NOLOGIN
+When rebooting with a SHUTDOWN_TIME that is not immediate, the
+system will prevent new logins within the last 5 minutes before
+reboot. Setting this config setting to 1 will have conreboot
+remove the /etc/nologin file which normally would prevent those logins.
+.IP
+Default: 0
+
+.TP
+.B UPDATE_MOTD
+Setting this value to 1 will have conreboot add messages into the
+login message-of-the-day when a reboot in needed, or if a reboot
+is actively scheuduled.
+.IP
+Default: 0
 
 .TP
 .B PREVENT_ACTIVE_USER_MINUTES
@@ -91,41 +111,48 @@ active.
 Default: 60
 
 .TP
+.B PREVENT_WHEN_PROCESS
+Prevent reboot if the listed process is running. This can list
+just the process or the process with flags.
+Multiple definitions are allowed.
+.IP
+Default: (nothing)
+
+.TP
 .B PREVENT_IF_SCRIPT_FAILS
 Prevent reboot is the given script or Bash shell command returns
 anything other than 0. Will do nothing if value is empty. Note
 that this command should be able to be executed quickly, and
 repeatedly, as the conditional reboot may continually run this
 command every minute while waiting to reboot.
+Multiple definitions are allowed.
 .IP
 Default: (nothing)
-
-.TP
-.B SHUTDOWN_TIME
-Sets the TIME argument to the shutdown command. Default is 1 minute
-warning before shutdown commences. Setting to +0 or now will result
-in immediate shutdown once it is determined to be okay to reboot.
-.IP
-Default: +1
 
 .TP
 .B PRE_SHUTDOWN_COMMAND
 When set, this script or Bash shell command will run just prior
 to the shutdown command. The shutdown command will commence
 regardess of the exit code of this command.
+Multiple definitions are allowed.
 .IP
 Default: (nothing)
 
 .SH "REPORTING BUGS"
 .PP
-Please report any bugs at <colli372@ msu.edu>
+Please report any bugs at <npcollins/gmail/com>
 
 .SH "COPYRIGHT"
 .PP
-Copyright (c) 2020 Michigan State University
+Copyright (c) 2020 Michigan State University Board of Trustees
+.PP
+
+.SH "LICENSE"
+.PP
+MIT License
 .PP
 
 .SH "AUTHOR"
 .PP
-Written by Nathan Collins <colli372@ msu.edu>
+Written by Nathan Collins <npcollins/gmail/com>
 
