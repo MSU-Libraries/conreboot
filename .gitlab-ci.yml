@@ -1,20 +1,20 @@
 stages:
-  #- unittest_and_lint
+  - unittest_and_lint
   - tag
   - build_release
   - make_release
 
-# TODO
-#unittest_and_lint_job:
-#  stage: unittest_and_lint
-#  tags:
-#    - msul-shared
-#  except:
-#    - tags
-#  before_script:
-#    - apk add shellcheck
-#  script:
-#    - shellcheck conreboot
+unittest_and_lint_job:
+  stage: unittest_and_lint
+  tags:
+    - msul-shared
+  except:
+    - tags
+  before_script:
+    - apk add shellcheck
+  script:
+    - shellcheck conreboot || true
+    # TODO
 
 tag_job:
   stage: tag
@@ -63,7 +63,7 @@ build_release_job:
     - 'build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -y'
     - 'DEB_FILE=$( build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -q )'
     - 'echo "Built .deb: $DEB_FILE"'
-    - 'DEB_UPLOAD_RESP=$( curl --request POST --header "PRIVATE-TOKEN: $RW_CICD_TOKEN" --form "file=@build/dist/${DEB_FILE}" "https://gitlab.msu.edu/api/v4/projects/$CI_PROJECT_ID/uploads" )'
+    - 'DEB_UPLOAD_RESP=$( curl --request POST --header "PRIVATE-TOKEN: $RW_CICD_TOKEN" --form "file=@${DEB_FILE}" "https://gitlab.msu.edu/api/v4/projects/$CI_PROJECT_ID/uploads" )'
     - 'echo "Upload .deb response: $DEB_UPLOAD_RESP"'
     - 'DEB_PKG_URL=$( echo "$DEB_UPLOAD_RESP" | jq -r ".full_path" )'
     - 'DEB_PKG_FILE=$( basename $DEB_PKG_URL )'
