@@ -34,8 +34,8 @@ tag_job:
     - cd clone/
     - VERSION=$( grep -E "^ *VERSION *=" "conreboot" | tail -n1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//' )
     - RELEASE=$( git tag -l ${VERSION}* --sort=-v:refname | head -n 1 | cut -d'-' -f 2 )
-    - "[ -z \"$RELEASE\" ] && RELEASE=-1"
-    - RELEASE=$(( RELEASE + 1 ))
+    - '[ -z "$RELEASE" ] && RELEASE=-1'
+    - (( RELEASE += 1 ))
     - TAG="${VERSION}-${RELEASE}"
     - echo "TAG=$TAG" > ../variables.env
     - echo "VERSION=$VERSION" >> ../variables.env
@@ -60,7 +60,9 @@ build_release_job:
   before_script:
     - apk add bash jq curl binutils findutils fakeroot gettext gzip
   script:
+    - 'build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -y'
     - 'DEB_FILE=$( build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -q )'
+    - echo "Built .deb: $DEB_FILE"
     - 'DEB_UPLOAD_RESP=$( curl --request POST --header "PRIVATE-TOKEN: $RW_CICD_TOKEN" --form "file=@build/dist/${DEB_FILE}" "https://gitlab.msu.edu/api/v4/projects/$CI_PROJECT_ID/uploads" )'
     - 'echo "Upload .deb response: $DEB_UPLOAD_RESP"'
     - 'DEB_PKG_URL=$( echo "$DEB_UPLOAD_RESP" | jq -r ".full_path" )'
