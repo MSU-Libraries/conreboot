@@ -62,7 +62,7 @@ build_release_job:
   script:
     - 'build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -y'
     - 'DEB_FILE=$( build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -q )'
-    - echo "Built .deb: $DEB_FILE"
+    - 'echo "Built .deb: $DEB_FILE"'
     - 'DEB_UPLOAD_RESP=$( curl --request POST --header "PRIVATE-TOKEN: $RW_CICD_TOKEN" --form "file=@build/dist/${DEB_FILE}" "https://gitlab.msu.edu/api/v4/projects/$CI_PROJECT_ID/uploads" )'
     - 'echo "Upload .deb response: $DEB_UPLOAD_RESP"'
     - 'DEB_PKG_URL=$( echo "$DEB_UPLOAD_RESP" | jq -r ".full_path" )'
