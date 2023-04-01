@@ -7,9 +7,7 @@ Triggers a reboot on a Linux system when preset conditions are met. The primary 
  - bash
  - systemd
  - awk
- - grep
- - procps
- - findutils
+ - bc
  - update-notifier (Debian/Ubnutu)
  - yum-utils/dnf-utils (RHEL/Rocky)
 

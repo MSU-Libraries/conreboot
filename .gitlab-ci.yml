@@ -9,6 +9,7 @@ unittest_and_lint_job:
   stage: unittest_and_lint
   tags:
     - msul-shared
+  allow_failure: false
   except:
     - tags
   before_script:
@@ -21,6 +22,7 @@ tag_job:
   stage: tag
   tags:
     - msul-shared
+  allow_failure: false
   when: manual
   only:
     - master
