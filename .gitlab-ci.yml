@@ -1,0 +1,95 @@
+stages:
+  #- unittest_and_lint
+  - tag
+  - build_release
+  - make_release
+
+unittest_and_lint_job:
+  stage: unittest_and_lint
+  tags:
+    - msul-shared
+  except:
+    - tags
+  before_script:
+    - apk add shellcheck
+  script:
+    - shellcheck conreboot
+    # TODO
+
+tag_job:
+  stage: tag
+  tags:
+    - msul-shared
+  when: manual
+  only:
+    - master
+  except:
+    - tags
+  before_script:
+    - apk add git
+  script:
+    # re-cloning to avoid runner cache
+    - rm -rf clone/ || true
+    - git clone https://gitlab-ci-token:$RW_CICD_TOKEN@gitlab.msu.edu/msu-libraries/systems/conreboot.git clone/
+    - cd clone/
+    - VERSION=$( grep -E "^ *VERSION *=" "conreboot" | tail -n1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//' )
+    - REVISION=$( git tag -l ${VERSION}* --sort=-v:refname | head -n 1 | cut -d'-' -f 2 )
+    - "[ -z \"$REVISION\" ] && REVISION=-1"
+    - REVISION=$(( REVISION + 1 ))
+    - TAG="${VERSION}-${REVISION}"
+    - echo "TAG=$TAG" > ../variables.env
+    - echo "VERSION=$VERSION" >> ../variables.env
+    - echo "RELEASE=$RELEASE" >> ../variables.env
+    - echo "Tagging with $TAG"
+    - git tag $TAG
+    - git push origin --tags
+  artifacts:
+    reports:
+      dotenv: variables.env
+
+build_release_job:
+  stage: build_release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  tags:
+    - msul-shared
+  only:
+    - master
+  needs:
+    - job: tag_job
+      artifacts: true
+  before_script:
+    - apk add bash jq curl binutils findutils fakeroot gettext gzip
+  script:
+    - 'DEB_FILE=$( build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -q )'
+    - 'DEB_UPLOAD_RESP=$( curl --request POST --header "PRIVATE-TOKEN: $RW_CICD_TOKEN" --form "file=@build/dist/${DEB_FILE}" "https://gitlab.msu.edu/api/v4/projects/$CI_PROJECT_ID/uploads" )'
+    - 'echo "Upload .deb response: $DEB_UPLOAD_RESP"'
+    - 'DEB_PKG_URL=$( echo "$DEB_UPLOAD_RESP" | jq -r ".full_path" )'
+    - 'DEB_PKG_FILE=$( basename $DEB_PKG_URL )'
+    - 'echo ".deb file uploaded to: ${DEB_PKG_URL}"'
+    - echo "DEB_PKG_URL=${DEB_PKG_URL}" >> assets.env
+    - echo "DEB_PKG_FILE=${DEB_PKG_FILE}" >> assets.env
+  artifacts:
+    reports:
+      dotenv: assets.env
+
+make_release_job:
+  stage: make_release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  tags:
+    - msul-shared
+  only:
+    - master
+  needs:
+    - job: tag_job
+      artifacts: true
+    - job: build_release_job
+      artifacts: true
+  script:
+    - echo "Making release $TAG"
+  release:
+    tag_name: '$TAG'
+    description: 'Release $TAG'
+    assets:
+      links:
+        - name: '${DEB_PKG_FILE}'
+          url: 'https://gitlab.msu.edu${DEB_PKG_URL}'
