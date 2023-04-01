@@ -33,10 +33,10 @@ tag_job:
     - git clone https://gitlab-ci-token:$RW_CICD_TOKEN@gitlab.msu.edu/msu-libraries/systems/conreboot.git clone/
     - cd clone/
     - VERSION=$( grep -E "^ *VERSION *=" "conreboot" | tail -n1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//' )
-    - REVISION=$( git tag -l ${VERSION}* --sort=-v:refname | head -n 1 | cut -d'-' -f 2 )
-    - "[ -z \"$REVISION\" ] && REVISION=-1"
-    - REVISION=$(( REVISION + 1 ))
-    - TAG="${VERSION}-${REVISION}"
+    - RELEASE=$( git tag -l ${VERSION}* --sort=-v:refname | head -n 1 | cut -d'-' -f 2 )
+    - "[ -z \"$RELEASE\" ] && RELEASE=-1"
+    - RELEASE=$(( RELEASE + 1 ))
+    - TAG="${VERSION}-${RELEASE}"
     - echo "TAG=$TAG" > ../variables.env
     - echo "VERSION=$VERSION" >> ../variables.env
     - echo "RELEASE=$RELEASE" >> ../variables.env
