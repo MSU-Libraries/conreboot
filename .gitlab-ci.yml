@@ -35,7 +35,7 @@ tag_job:
     - VERSION=$( grep -E "^ *VERSION *=" "conreboot" | tail -n1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//' )
     - RELEASE=$( git tag -l ${VERSION}* --sort=-v:refname | head -n 1 | cut -d'-' -f 2 )
     - '[ -z "$RELEASE" ] && RELEASE=-1'
-    - (( RELEASE += 1 ))
+    - RELEASE=$(( RELEASE + 1 ))
     - TAG="${VERSION}-${RELEASE}"
     - echo "TAG=$TAG" > ../variables.env
     - echo "VERSION=$VERSION" >> ../variables.env
