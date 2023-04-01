@@ -3,7 +3,8 @@ stages:
   - tag
   - build_docs
   - build_release
-  - make_release
+  - make_release_gitlab
+  - make_release_github
 
 unittest_and_lint_job:
   stage: unittest_and_lint
@@ -94,7 +95,7 @@ build_release_job:
       dotenv: assets.env
 
 make_release_gitlab_job:
-  stage: make_release
+  stage: make_release_gitlab
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   tags:
     - msul-shared
@@ -116,7 +117,7 @@ make_release_gitlab_job:
           url: 'https://gitlab.msu.edu${DEB_PKG_URL}'
 
 make_release_github_job:
-  stage: make_release
+  stage: make_release_github
   tags:
     - msul-shared
   image: alpine:latest
