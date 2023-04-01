@@ -1,0 +1,22 @@
+site_name: conreboot
+repo_url: https://github.com/msu-libraries/conreboot
+repo_name: msu-libraries/conreboot
+
+theme:
+  name: "material"
+
+plugins:
+- search:
+
+markdown_extensions:
+- toc:
+    toc_depth : "1-1"
+
+nav:
+- Dependencies: ./#dependencies
+- The Reboot: ./#the-reboot
+- The Command: ./#the-command
+- The Config File: ./#this-config-file
+- Debugging: ./#debugging
+- Author and Copyright: ./#author-and-copyright
+- License: ./#license

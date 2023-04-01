@@ -1,3 +1,4 @@
 .*.sw[po]
 conreboot.cfg
 build/dist/
+env/
