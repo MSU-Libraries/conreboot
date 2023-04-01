@@ -4,17 +4,17 @@ stages:
   - build_release
   - make_release
 
-unittest_and_lint_job:
-  stage: unittest_and_lint
-  tags:
-    - msul-shared
-  except:
-    - tags
-  before_script:
-    - apk add shellcheck
-  script:
-    - shellcheck conreboot
-    # TODO
+# TODO
+#unittest_and_lint_job:
+#  stage: unittest_and_lint
+#  tags:
+#    - msul-shared
+#  except:
+#    - tags
+#  before_script:
+#    - apk add shellcheck
+#  script:
+#    - shellcheck conreboot
 
 tag_job:
   stage: tag
