@@ -75,6 +75,7 @@ build_release_job:
   only:
     - master
   needs:
+    - job: build_docs_job
     - job: tag_job
       artifacts: true
   before_script:

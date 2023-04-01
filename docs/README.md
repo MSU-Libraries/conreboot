@@ -1,7 +1,7 @@
-# conreboot - Conditional Rebooter
+# conreboot - A Conditional Rebooter
 Triggers a reboot on a Linux system when preset conditions are met. The primary condition is that the server indicates that it needs to be rebooted. Other conditions are defined in a config file on the server.  
 
-![conreboot status](images/conreboot_status.png "example of running conreboot status command")
+![conreboot status](./conreboot_status.png "example of running conreboot status command")
 
 ## Dependencies
  - bash
@@ -16,12 +16,13 @@ The `conreboot` service will reboot the server via a `shutdown -r` command when 
 
 ## The Command
 The `conreboot` command is central to the service. It has the following flags:  
-* `--help/-h` Display help about the flags.
-* `--status/-s` Display status of conreboot service, if any reboot is pending, and status of each condition that must happen before a reboot could happen.
-* `--manual/-m` Schedule a manual conreboot to happen as soon as all conditions are safe, even if the server does not indicate the need to reboot.
-* `--cancel/-c` Cancel a scheduled manual conreboot.
-* `--daemon/-d` Start as a conreboot daemon; used by the systemd service unit.
-* `--config/-f FILE` Use alternate `FILE` instead of default config file.
+
+ * `--help/-h` Display help about the flags.
+ * `--status/-s` Display status of conreboot service, if any reboot is pending, and status of each condition that must happen before a reboot could happen.
+ * `--manual/-m` Schedule a manual conreboot to happen as soon as all conditions are safe, even if the server does not indicate the need to reboot.
+ * `--cancel/-c` Cancel a scheduled manual conreboot.
+ * `--daemon/-d` Start as a conreboot daemon; used by the systemd service unit.
+ * `--config/-f FILE` Use alternate `FILE` instead of default config file.
 
 ## The Config File
 Each host machine the conditional reboot script will be run on must have a config file setup
@@ -30,6 +31,7 @@ or the script will do nothing and exit.
 The default config location is at: `/etc/conreboot.cfg` (template available at `/usr/share/doc/conreboot/conreboot.cfg`).  
 
 The config has following settings:  
+
  * [`REBOOT_TIMES`](#reboot_times)
  * [`SHUTDOWN_TIME`](#shutdown_time)
  * [`PREVENT_NOLOGIN`](#prevent_nologin)
@@ -45,7 +47,6 @@ This sets the allowed times when a reboot can occur. Format is a comma-delimited
 of time ranges. Times are in the format such as `3am-7:30am` or `11:30pm-2:30am`  
 When set to `never`, `conreboot` will not be trigger reboots and will exit with code 0.  
 ```
-# Examples:
 REBOOT_TIMES=12pm-6am
 REBOOT_TIMES=10pm-1am,4:30am-6am
 REBOOT_TIMES=never
@@ -95,7 +96,6 @@ Prevent reboot if the listed process is running. This can list just the process
 or the process with flags.  
 Multiple definitions are allowed.  
 ```
-# Examples:
 PREVENT_WHEN_PROCESS=mysqldump
 PREVENT_WHEN_PROCESS=rsync -av --del /var/
 ```
