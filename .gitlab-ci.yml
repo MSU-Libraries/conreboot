@@ -83,17 +83,22 @@ build_release_job:
   script:
     - 'build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -y'
     - 'DEB_FILE=$( build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -q )'
+    - 'mv $DEB_FILE ./'
+    - 'DEB_FILE=$( basename $DEB_FILE )'
     - 'echo "Built .deb: $DEB_FILE"'
     - 'DEB_UPLOAD_RESP=$( curl --request POST --header "PRIVATE-TOKEN: $RW_CICD_TOKEN" --form "file=@${DEB_FILE}" "https://gitlab.msu.edu/api/v4/projects/$CI_PROJECT_ID/uploads" )'
     - 'echo "Upload .deb response: $DEB_UPLOAD_RESP"'
     - 'DEB_PKG_URL=$( echo "$DEB_UPLOAD_RESP" | jq -r ".full_path" )'
     - 'DEB_PKG_FILE=$( basename $DEB_PKG_URL )'
     - 'echo ".deb file uploaded to: ${DEB_PKG_URL}"'
+    - echo "DEB_FILE=${DEB_FILE}" >> assets.env
     - echo "DEB_PKG_URL=${DEB_PKG_URL}" >> assets.env
     - echo "DEB_PKG_FILE=${DEB_PKG_FILE}" >> assets.env
   artifacts:
     reports:
       dotenv: assets.env
+    paths:
+      - "$DEB_FILE"
 
 make_release_gitlab_job:
   stage: make_release_gitlab
@@ -117,7 +122,7 @@ make_release_gitlab_job:
         - name: '${DEB_PKG_FILE}'
           url: 'https://gitlab.msu.edu${DEB_PKG_URL}'
 
-make_release_github_job:
+update_github_job:
   stage: make_release_github
   tags:
     - msul-shared
@@ -143,3 +148,30 @@ make_release_github_job:
     # Next we have to re-configure the Pages settings to set gh-pages as the branch again
     - echo '{"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}' > data.json
     - "curl -X POST -H 'Accept: application/vnd.github+json' -H \"Authorization: token ${GITHUB_USER_TOKEN}\" https://api.github.com/repos/MSU-Libraries/conreboot/pages -d '@data.json'"
+
+make_release_github_job:
+  stage: make_release_github
+  tags:
+    - msul-shared
+  image: alpine:latest
+  when: manual
+  only:
+    - master
+  except:
+    - tags
+  needs:
+    - job: update_github_job
+    - job: build_release_job
+      artifacts: true
+  before_script:
+    - apk add curl jq
+  script:
+    # Create release using TAG
+    - echo "{\"tag_name\":\"${TAG}\",\"target_commitish\":\"master\",\"name\":\"v${TAG}\",\"body\":\"Release ${TAG}\",\"draft\":false,\"prerelease\":false,\"generate_release_notes\":false}" > data.json
+    - "GH_RELEASE_JSON=$( curl -L -X POST -H 'Accept: application/vnd.github+json' -H 'Authorization: Bearer ${GITHUB_USER_TOKEN}' -H 'X-GitHub-Api-Version: 2022-11-28' https://api.github.com/repos/MSU-Libraries/conreboot/releases -d '@data.json' )"
+    - echo "GitHub Response: \n$GH_RELEASE_JSON"
+    - 'RELEASE_ID=$( echo "$GH_RELEASE_JSON" | jq -r ".id" )'
+    - echo "Created release id: $RELEASE_ID"
+    # Upload package as asset on the release
+    - 'GH_ASSET_JSON=$( curl -L -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_USER_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" -H "Content-Type: application/octet-stream" https://uploads.github.com/repos/MSU-Libraries/conreboot/releases/${RELEASE_ID}/assets?name=${DEB_FILE} --data-binary "@${DEB_FILE}" )'
+    - echo "GitHub Response: \n$GH_ASSET_JSON"

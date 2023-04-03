@@ -28,7 +28,7 @@ The `conreboot` command is central to the service. It has the following flags:
 Each host machine the conditional reboot script will be run on must have a config file setup
 or the script will do nothing and exit.  
 
-The default config location is at: `/etc/conreboot.cfg` (template available at `/usr/share/doc/conreboot/conreboot.cfg`).  
+The default config location is at: `/etc/conreboot.cfg`.  
 
 The config has following settings:  
 
