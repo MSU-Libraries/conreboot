@@ -66,6 +66,7 @@ build_docs_job:
   artifacts:
     paths:
       - public
+    expire_in: 1 week
 
 build_release_job:
   stage: build_release
@@ -83,14 +84,16 @@ build_release_job:
   script:
     - 'build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -y'
     - 'DEB_FILE=$( build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -q )'
-    - 'mv $DEB_FILE ./'
+    - 'mkdir dist/'
+    - 'mv $DEB_FILE ./dist/'
     - 'DEB_FILE=$( basename $DEB_FILE )'
     - 'echo "Built .deb: $DEB_FILE"'
-    - 'DEB_UPLOAD_RESP=$( curl --request POST --header "PRIVATE-TOKEN: $RW_CICD_TOKEN" --form "file=@${DEB_FILE}" "https://gitlab.msu.edu/api/v4/projects/$CI_PROJECT_ID/uploads" )'
+    - 'DEB_UPLOAD_RESP=$( curl --request POST --header "PRIVATE-TOKEN: $RW_CICD_TOKEN" --form "file=@dist/${DEB_FILE}" "https://gitlab.msu.edu/api/v4/projects/$CI_PROJECT_ID/uploads" )'
     - 'echo "Upload .deb response: $DEB_UPLOAD_RESP"'
     - 'DEB_PKG_URL=$( echo "$DEB_UPLOAD_RESP" | jq -r ".full_path" )'
     - 'DEB_PKG_FILE=$( basename $DEB_PKG_URL )'
     - 'echo ".deb file uploaded to: ${DEB_PKG_URL}"'
+    - echo "TAG=${TAG}" > assets.env
     - echo "DEB_FILE=${DEB_FILE}" >> assets.env
     - echo "DEB_PKG_URL=${DEB_PKG_URL}" >> assets.env
     - echo "DEB_PKG_FILE=${DEB_PKG_FILE}" >> assets.env
@@ -98,7 +101,8 @@ build_release_job:
     reports:
       dotenv: assets.env
     paths:
-      - "$DEB_FILE"
+      - "dist/"
+    expire_in: 1 week
 
 make_release_gitlab_job:
   stage: make_release_gitlab
@@ -108,8 +112,6 @@ make_release_gitlab_job:
   only:
     - master
   needs:
-    - job: tag_job
-      artifacts: true
     - job: build_release_job
       artifacts: true
   script:
@@ -132,9 +134,6 @@ update_github_job:
     - master
   except:
     - tags
-  needs:
-    - job: build_docs_job
-      artifacts: true
   before_script:
     - apk add git curl
   script:
@@ -165,13 +164,16 @@ make_release_github_job:
   before_script:
     - apk add curl jq
   script:
+    # Assets
+    - 'echo "Contents of dist/"'
+    - 'ls -l dist/'
     # Create release using TAG
-    - 'echo "{\"tag_name\":\"${TAG}\",\"name\":\"v${TAG}\",\"body\":\"Release ${TAG}\",\"draft\":false,\"prerelease\":false,\"generate_release_notes\":false}" > data.json'
+    - "echo '{\"tag_name\":\"${TAG}\",\"name\":\"v${TAG}\",\"body\":\"Release ${TAG}\",\"draft\":false,\"prerelease\":false,\"generate_release_notes\":false}' > data.json"
     - 'echo "data.json: $( cat data.json )"'
     - "GH_JSON=$( curl -L -X POST -H 'Accept: application/vnd.github+json' -u ${GITHUB_USER_TOKEN} -H 'X-GitHub-Api-Version: 2022-11-28' https://api.github.com/repos/MSU-Libraries/conreboot/releases -d '@data.json' )"
     - 'echo "GitHub Response: $GH_JSON"'
     - 'RELEASE_ID=$( echo "$GH_JSON" | jq -r ".id" )'
     - 'echo "Created release id: $RELEASE_ID"'
     # Upload package as asset on the release
-    - "GH_JSON=$( curl -L -X POST -H 'Accept: application/vnd.github+json' -u ${GITHUB_USER_TOKEN} -H 'X-GitHub-Api-Version: 2022-11-28' -H 'Content-Type: application/octet-stream' https://uploads.github.com/repos/MSU-Libraries/conreboot/releases/${RELEASE_ID}/assets?name=${DEB_FILE} --data-binary '@${DEB_FILE}' )"
+    - "GH_JSON=$( curl -L -X POST -H 'Accept: application/vnd.github+json' -u ${GITHUB_USER_TOKEN} -H 'X-GitHub-Api-Version: 2022-11-28' -H 'Content-Type: application/octet-stream' https://uploads.github.com/repos/MSU-Libraries/conreboot/releases/${RELEASE_ID}/assets?name=${DEB_FILE} --data-binary '@dist/${DEB_FILE}' )"
     - 'echo "GitHub Response: $GH_JSON"'
