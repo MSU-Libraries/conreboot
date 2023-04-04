@@ -37,10 +37,12 @@ tag_job:
     - git clone https://gitlab-ci-token:$RW_CICD_TOKEN@gitlab.msu.edu/msu-libraries/systems/conreboot.git clone/
     - cd clone/
     - VERSION=$( grep -E "^ *VERSION *=" "conreboot" | tail -n1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//' )
+    - BASE_RELEASE=$( git tag -l ${VERSION} )
     - RELEASE=$( git tag -l ${VERSION}* --sort=-v:refname | head -n 1 | cut -d'-' -f 2 )
-    - '[ -z "$RELEASE" ] && RELEASE=-1'
+    - '[ -z "$BASE_RELEASE" ] && RELEASE=-1'
     - RELEASE=$(( RELEASE + 1 ))
-    - TAG="${VERSION}-${RELEASE}"
+    - '[ "$RELEASE" -eq 0 ] && RELEASE_TAG="" || RELEASE_TAG="-$RELEASE"'
+    - TAG="${VERSION}${RELEASE_TAG}"
     - echo "TAG=$TAG" > ../variables.env
     - echo "VERSION=$VERSION" >> ../variables.env
     - echo "RELEASE=$RELEASE" >> ../variables.env
@@ -82,7 +84,7 @@ build_release_job:
   before_script:
     - apk add bash jq curl binutils findutils fakeroot gettext gzip
   script:
-    - 'build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -y'
+    - '[ "$RELEASE" -eq 0 ] && RELEASE=""'
     - 'DEB_FILE=$( build/package-deb.sh -n "Nathan Collins" -e "colli372@msu.edu" -r "$RELEASE" -q )'
     - 'mkdir dist/'
     - 'mv $DEB_FILE ./dist/'
