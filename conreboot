@@ -9,7 +9,7 @@
 
 SCRIPT_NAME=$( basename "$0" )
 # shellcheck disable=SC2034
-VERSION=0.2.3
+VERSION=0.2.4
 CONFIG_FILE=/etc/conreboot.cfg
 MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
 CONFIG_HASH_FILE=/run/conreboot.md5
