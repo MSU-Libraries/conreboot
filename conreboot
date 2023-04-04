@@ -9,9 +9,10 @@
 
 SCRIPT_NAME=$( basename "$0" )
 # shellcheck disable=SC2034
-VERSION=0.2.2
+VERSION=0.2.3
 CONFIG_FILE=/etc/conreboot.cfg
 MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
+CONFIG_HASH_FILE=/run/conreboot.md5
 
 command_help() {
     echo ""
@@ -160,7 +161,6 @@ get_distro_family() {
 ###############################
 ## Creates an array of config variables with default values
 default_config() {
-    declare -g CONFIG_HASH=
     declare -g -a CONFIG_KEYS=(
         REBOOT_TIMES
         SHUTDOWN_TIME
@@ -217,6 +217,10 @@ config_hash() {
     md5sum "$CONFIG_FILE" | awk '{ print $1 }'
 }
 
+daemon_config_hash() {
+    cat "$CONFIG_HASH_FILE" 2> /dev/null
+}
+
 ###############################
 ## Parse config file given
 ## Returns 0 on success, 1 on error
@@ -257,7 +261,6 @@ parse_config() {
         done
         exit 1
     fi
-    CONFIG_HASH=$( config_hash )
 }
 
 #######################################
@@ -449,8 +452,7 @@ check_already_running() {
 }
 
 warn_if_config_changed() {
-    CURRENT_HASH=$( config_hash )
-    if [[ "$CURRENT_HASH" != "${CONFIG_HASH}" ]]; then
+    if [[ "$( config_hash )" != "$( daemon_config_hash )" ]]; then
         echo -e "${CLR_RED}WARNING${CLR_RESET}: Config file has changed. Restart conreboot service for changes to take effect."
     fi
 }
@@ -528,6 +530,11 @@ do_shutdown() {
     shutdown -r "${SHUTDOWN_TIME}"
 }
 
+cleanup_daemon() {
+    rm -rf "$CONFIG_HASH_FILE"
+    clear_motd
+}
+
 command_daemon() {
     # Skip if not daemon
     if ! [[ ${ARGS[DAEMON]} -eq 1 ]]; then
@@ -535,6 +542,8 @@ command_daemon() {
     fi
 
     _debug "Starting conreboot as daemon"
+    trap cleanup_daemon SIGINT SIGTERM
+    config_hash > "$CONFIG_HASH_FILE"
     while true; do daemon_loop; done
 }
 
