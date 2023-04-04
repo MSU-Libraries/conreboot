@@ -316,7 +316,7 @@ update_motd() {
             set_motd_tag "active" "A reboot is scheduled for $( display_shutdown_time )"
         elif has_pending_shutdown; then
             set_motd_tag "active" "A shutdown is scheduled for $( display_shutdown_time )"
-        elif need_to_reboot; then
+        elif ( need_to_reboot || queued_reboot ); then
             set_motd_tag "waiting" "A reboot is pending. Reboot window(s): ${REBOOT_TIMES}"
         else
             clear_motd
@@ -464,7 +464,7 @@ no_reboot_times() {
 
 check_reboot() {
     _debug "Checking if okay to issue reboot"
-    if  ( need_to_reboot || queued_reboot ) && \
+    if ( need_to_reboot || queued_reboot ) && \
         is_reboot_time && \
         no_prohibited_process && \
         no_active_users && \
