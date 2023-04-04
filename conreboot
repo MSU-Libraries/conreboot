@@ -285,7 +285,8 @@ display_shutdown_time() {
 
 clear_motd_tag() {
     MOTD_TAG="$1"
-    if [[ -f /etc/motd ]]; then
+    MSG_PREFIX="conreboot-${MOTD_TAG}:"
+    if grep -q "^${MSG_PREFIX}" /etc/motd 2> /dev/null; then
         sed -i "/^conreboot-${MOTD_TAG}:/d" /etc/motd
     fi
 }
@@ -299,7 +300,7 @@ set_motd_tag() {
     MOTD_TAG="$1"
     MOTD_MSG="$2"
     FULL_MSG="conreboot-${MOTD_TAG}: ${MOTD_MSG}"
-    if grep -q "$FULL_MSG" /etc/motd 2> /dev/null; then
+    if grep -q "^${FULL_MSG}$" /etc/motd 2> /dev/null; then
         return
     fi
     clear_motd_tag "$MOTD_TAG"
