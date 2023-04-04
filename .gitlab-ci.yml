@@ -38,6 +38,7 @@ tag_job:
     - VERSION=$( grep -E "^ *VERSION *=" "conreboot" | tail -n1 | cut -d= -f2- | sed 's/ *$//' | sed 's/^ *//' )
     - BASE_RELEASE=$( git tag -l ${VERSION} )
     - RELEASE=$( git tag -l ${VERSION}* --sort=-v:refname | head -n 1 | cut -d'-' -f 2 )
+    - '[ "$RELEASE" = "$BASE_RELEASE" ] && RELEASE=0'
     - '[ -z "$BASE_RELEASE" ] && RELEASE=-1'
     - RELEASE=$(( RELEASE + 1 ))
     - '[ "$RELEASE" -eq 0 ] && RELEASE_TAG="" || RELEASE_TAG="-$RELEASE"'
