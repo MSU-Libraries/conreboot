@@ -30,6 +30,8 @@ or the script will do nothing and exit.
 
 The default config location is at: `/etc/conreboot.cfg`.  
 
+Changes to the config file will not take effect until the `conreboot` service is restarted.  
+
 The config has following settings:  
 
  * [`REBOOT_TIMES`](#reboot_times)
@@ -45,7 +47,7 @@ The config has following settings:
 Default value: `never`  
 This sets the allowed times when a reboot can occur. Format is a comma-delimited list
 of time ranges. Times are in the format such as `3am-7:30am` or `11:30pm-2:30am`  
-When set to `never`, `conreboot` will not be trigger reboots and will exit with code 0.  
+When set to `never`, `conreboot` will not trigger a reboot.  
 ```
 REBOOT_TIMES=12pm-6am
 REBOOT_TIMES=10pm-1am,4:30am-6am

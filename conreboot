@@ -533,6 +533,7 @@ do_shutdown() {
 cleanup_daemon() {
     rm -rf "$CONFIG_HASH_FILE"
     clear_motd
+    exit 0
 }
 
 command_daemon() {

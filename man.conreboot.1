@@ -64,6 +64,9 @@ conditions under which it will reboot.
 .B
 /etc/conreboot.cfg
 .PP
+Changes to the config file will not take effect until the conreboot
+service is restarted.
+.PP
 Settings in the config file are as follows:
 
 .TP
@@ -71,8 +74,7 @@ Settings in the config file are as follows:
 This sets the allowed times when a reboot can occur. Format is a
 comma-delimited list of time ranges. Times are in the format such
 as 3am-7:30am or 11:30pm-2:30am. When set to never, conditional
-reboot requests will never be allowed and the conreboot will exit
-with code 0
+reboot requests will never be allowed by conreboot.
 .IP
 Default: never
 
