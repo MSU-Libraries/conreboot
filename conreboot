@@ -9,7 +9,7 @@
 
 SCRIPT_NAME=$( basename "$0" )
 # shellcheck disable=SC2034
-VERSION=0.2.1
+VERSION=0.2.2
 CONFIG_FILE=/etc/conreboot.cfg
 MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
 
@@ -550,8 +550,8 @@ command_status() {
     fi
 
     if [[ ${FAMILY} == "debian" ]]; then
-        if ! dpkg -l update-notifier > /dev/null 2>&1; then
-            echo -e "${CLR_RED}FAILURE${CLR_RESET}: Debian/Ubuntu conreboot requires the update-notifier package to be installed."
+        if ! dpkg -l update-notifier-common > /dev/null 2>&1; then
+            echo -e "${CLR_RED}FAILURE${CLR_RESET}: Debian/Ubuntu conreboot requires the update-notifier-common package to be installed."
             exit 1
         fi
     elif [[ ${FAMILY} == "rhel" ]]; then

@@ -8,7 +8,7 @@ Triggers a reboot on a Linux system when preset conditions are met. The primary 
  - systemd
  - awk
  - bc
- - update-notifier (Debian/Ubnutu)
+ - update-notifier-common (Debian/Ubnutu)
  - yum-utils/dnf-utils (RHEL/Rocky)
 
 ## The Reboot

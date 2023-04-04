@@ -3,7 +3,7 @@ Version: $VERSION
 Architecture: all
 Maintainer: $PKGBLD_NAME <$PKGBLD_EMAIL>
 Installed-Size: $PKGBLD_INSTALL_SIZE
-Depends: bash, gawk, bc, update-notifier
+Depends: bash, gawk, bc, update-notifier-common
 Section: utils
 Priority: optional
 Homepage: https://github.com/msu-libraries/conreboot/
