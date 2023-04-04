@@ -1,5 +1,5 @@
 Package: $PKG_NAME
-Version: $VERSION
+Version: $DEB_VERSION
 Architecture: all
 Maintainer: $PKGBLD_NAME <$PKGBLD_EMAIL>
 Installed-Size: $PKGBLD_INSTALL_SIZE

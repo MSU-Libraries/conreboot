@@ -62,6 +62,7 @@ declare_vars() {
     declare -x -g PKGBLD_DATE=$( date )
     declare -x -g PKGBLD_INSTALL_SIZE=0
     declare -g RELEASE=0
+    declare -g DEB_VERSION
     declare -g DEB_FILE
     declare -g BLD_DIR=$( readlink -f $( dirname "${BASH_SOURCE[0]}" ))
     declare -g SRC_DIR=$( dirname "$BLD_DIR" )
@@ -129,7 +130,8 @@ builder_info() {
     if [[ -n "$RELEASE" ]]; then
         RELEASE_POST="-${RELEASE}"
     fi
-    DEB_FILE="${PKG_NAME}-${VERSION}${RELEASE_POST}.deb"
+    DEB_VERSION=${VERSION}${RELEASE_POST}
+    DEB_FILE="${PKG_NAME}-${DEB_VERSION}.deb"
 
     verbose ""
     verbose "Project:      $PKG_NAME"
@@ -137,6 +139,7 @@ builder_info() {
     verbose "Email:        $PKGBLD_EMAIL"
     verbose "Version:      $VERSION"
     verbose "Release:      $RELEASE"
+    verbose "Pkg version:  $DEB_VERSION"
     verbose "Package:      $DEB_FILE"
     verbose "Source:       $SRC_DIR"
     verbose "Build:        $BLD_DIR"
@@ -180,6 +183,7 @@ build_control() {
     verbose "Creating control.tar.gz..."
     cd                                  "$DIST_DIR/data"
     PKGBLD_INSTALL_SIZE=$( du -sb "$DIST_DIR/data" | awk '{ print $1 }' )
+    PKGBLD_INSTALL_SIZE=$(( (PKGBLD_INSTALL_SIZE + 1023) / 1024 ))
     mkdir -p                            "$DIST_DIR/control"
     find . -type f -exec md5sum {} \; > "$DIST_DIR/control/md5sum"
     envsubst < "$TMPL_DIR/control"    > "$DIST_DIR/control/control"
