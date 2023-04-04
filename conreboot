@@ -316,10 +316,10 @@ update_motd() {
             set_motd_tag "active" "A reboot is scheduled for $( display_shutdown_time )"
         elif has_pending_shutdown; then
             set_motd_tag "active" "A shutdown is scheduled for $( display_shutdown_time )"
-        fi
-
-        if need_to_reboot; then
+        elif need_to_reboot; then
             set_motd_tag "waiting" "A reboot is pending. Reboot window(s): ${REBOOT_TIMES}"
+        else
+            clear_motd
         fi
     fi
 }
