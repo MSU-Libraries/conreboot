@@ -16,8 +16,7 @@ unittest_and_lint_job:
   before_script:
     - apk add shellcheck
   script:
-    - shellcheck conreboot || true
-    # TODO
+    - shellcheck conreboot
 
 tag_job:
   stage: tag

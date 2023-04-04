@@ -1,14 +1,15 @@
 #!/bin/bash
-#######################################
-## Conditional Reboot Service
-#######################################
-# Requires valid /etc/conreboot.cfg defined
-# If config file is missing or invalid,
-# nothing happens and script exits with code 1
-#
+#################################################
+## conreboot - A Conditional Reboot Service
+## https://github.com/MSU-Libraries/conreboot
+##
+## Copyright (c) 2020 Michigan State University Board of Trustees
+## Released under the MIT License
+#################################################
 
-VERSION=0.2.0
 SCRIPT_NAME=$( basename "$0" )
+# shellcheck disable=SC2034
+VERSION=0.2.1
 CONFIG_FILE=/etc/conreboot.cfg
 MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
 
@@ -17,8 +18,7 @@ command_help() {
     echo "Usage: $SCRIPT_NAME [FLAGS]"
     echo ""
     echo "A conditional rebooting client, used to control the conreboot service."
-    echo " * For information on configuring, see:   man conreboot.cfg"
-    echo " * For more information on use, see:      man conreboot"
+    echo " * For information on configuration, see:  man conreboot"
     echo ""
     echo "FLAGS:"
     echo "  -s | --status"
@@ -145,6 +145,7 @@ parse_args() {
 ## Prints "unknown" if not found or not compatible.
 get_distro_family() {
     eval "$( grep -E '^(ID|ID_LIKE)' /etc/os-release )"
+    # shellcheck disable=SC2034
     FAMILIES=("${ID}" "${ID_LIKE}")
     COMPAT_FAMILIES=(debian rhel)
     for COMPAT in "${COMPAT_FAMILIES[@]}"; do
@@ -170,6 +171,7 @@ default_config() {
         PREVENT_IF_SCRIPT_FAILS
         PRE_SHUTDOWN_COMMAND
     )
+    # shellcheck disable=SC2034
     declare -g -a ALLOW_MULTI=(
         PREVENT_WHEN_PROCESS
         PREVENT_IF_SCRIPT_FAILS
@@ -202,10 +204,9 @@ config_param_get_all() {
 ## Returns 0 if an element matches the value to find
 array_contains() {
     local ARRNAME="$1[@]"
-    local HAYSTACK=( ${!ARRNAME} )
     local NEEDLE="$2"
-    for VAL in "${HAYSTACK[@]}"; do
-        if [[ "$NEEDLE" == "$VAL" ]]; then
+    for HAY in "${!ARRNAME}"; do
+        if [[ "$NEEDLE" == "$HAY" ]]; then
             return 0
         fi
     done
@@ -276,6 +277,7 @@ has_pending_reboot() {
 }
 
 display_shutdown_time() {
+    # shellcheck source=/dev/null
     source "$SCHEDULED_SHUTDOWN" 2> /dev/null
     UNIXTIME="${USEC::-6}"
     date "--date=@$UNIXTIME"
@@ -335,7 +337,7 @@ time_to_minutes() {
     HOURS=${BASH_REMATCH[1]}
     ((HOURS == 12)) && HOURS=0
     MINUTES=${BASH_REMATCH[3]:-0}
-    AFTERNOON=$([[ ${BASH_REMATCH[4]} == p ]] && echo 12 || echo 0)
+    AFTERNOON=$( [[ ${BASH_REMATCH[4]} == p ]] && echo 12 || echo 0 )
 
     echo $((60 * HOURS + 60 * AFTERNOON + MINUTES))
 }
@@ -366,8 +368,7 @@ is_reboot_time() {
 no_prohibited_process() {
     PROC_FOUND=0
     for PWP in "${PREVENT_WHEN_PROCESS[@]}"; do
-        pgrep -f -- "${PWP}" > /dev/null
-        if [[ $? -eq 0 ]]; then
+        if pgrep -f -- "${PWP}" > /dev/null; then
             _debug "Found prohibited process matching: $PROC"
             PROC_FOUND=1
             break
@@ -480,6 +481,7 @@ remove_nologin() {
 
 dummy_sleep() {
     # Using read timeout to prevent ugly sleep processes
+    # shellcheck disable=SC2015,SC2034,SC2162
     coproc read -t "$1" DUMMY && wait "$!" || true
 }
 
@@ -548,14 +550,12 @@ command_status() {
     fi
 
     if [[ ${FAMILY} == "debian" ]]; then
-        dpkg -l update-notifier > /dev/null 2>&1
-        if [[ $? -ne 0 ]]; then
+        if ! dpkg -l update-notifier > /dev/null 2>&1; then
             echo -e "${CLR_RED}FAILURE${CLR_RESET}: Debian/Ubuntu conreboot requires the update-notifier package to be installed."
             exit 1
         fi
     elif [[ ${FAMILY} == "rhel" ]]; then
-        rpm -q yum-utils > /dev/null 2>&1
-        if [[ $? -ne 0 ]]; then
+        if ! rpm -q yum-utils > /dev/null 2>&1; then
             echo -e "${CLR_RED}FAILURE${CLR_RESET}: RHEL/Rocky conreboot requires the yum-utils package to be installed."
             exit 1
         fi
