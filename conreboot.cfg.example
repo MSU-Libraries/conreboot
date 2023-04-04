@@ -13,11 +13,11 @@ REBOOT_TIMES=never
 # The nologin file when SHUTDOWN_TIME is set greater than 0, and even then
 # it normally exists only for the last 5 minutes before the reboot.
 # Default: 0
-#PREVENT_NOLOGIN: 1
+#PREVENT_NOLOGIN=1
 
 # Insert a message into /etc/motd when a reboot is required, pending, or in progress.
 # Default: 0
-#UPDATE_MOTD: 1
+#UPDATE_MOTD=1
 
 # How long a user must be idle (in minutes) before they are considered no longer active
 # Set to 0 to reboot while users are active
