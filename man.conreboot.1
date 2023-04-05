@@ -91,7 +91,8 @@ Default: +1
 When rebooting with a SHUTDOWN_TIME that is not immediate, the
 system will prevent new logins within the last 5 minutes before
 reboot. Setting this config setting to 1 will have conreboot
-remove the /etc/nologin file which normally would prevent those logins.
+remove the /etc/nologin or /var/run/nologin file which normally
+would prevent those logins.
 .IP
 Default: 0
 

@@ -1,44 +1,50 @@
-# Allowed times when this server is allowed to reboot
+# Allowed times when this server is allowed to reboot.
 # Value is a range of times, e.g. 1am-4:30am
-# Multiple ranges can be specified using a comma delimited list
+# Multiple ranges can be specified using a comma delimited list.
 # Default: never
 REBOOT_TIMES=never
 #REBOOT_TIMES=12am-1am,3am-7am
 
-# The TIME argument to pass to the shutdown command (see `man shutdown`)
-# Default of +1 (one minute delay until shutdown commences)
+# The TIME argument to pass to the shutdown command (see `man shutdown`).
+# Default of +1 (one minute delay until shutdown commences).
 #SHUTDOWN_TIME=now
 
-# Stop /etc/nologin from being created, preventing logins when about to reboot.
-# The nologin file when SHUTDOWN_TIME is set greater than 0, and even then
-# it normally exists only for the last 5 minutes before the reboot.
+# Remove any /etc/nologin or /var/run/nologin files which preventing logins
+# when about to reboot. The nologin file is set when SHUTDOWN_TIME is set
+# greater than 0, and even then it normally exists only for the last 5 minutes
+# before the reboot.
 # Default: 0
 #PREVENT_NOLOGIN=1
 
-# Insert a message into /etc/motd when a reboot is required, pending, or in progress.
+# Insert a message into /etc/motd when a reboot is required, pending, or
+# in progress.
 # Default: 0
 #UPDATE_MOTD=1
 
-# How long a user must be idle (in minutes) before they are considered no longer active
-# Set to 0 to reboot while users are active
+# How long a user must be idle (in minutes) before they are considered no
+# longer active.
+# Set to 0 to reboot while users are active.
 # Default: 60
 #PREVENT_ACTIVE_USER_MINUTES=30
 
-# Prevent a reboot if the specificed process is detected running. Can be just the
-# command name (rsync) or a specific command invocation (mysqldump -u root --all-databases)
-# If multiple definitions of this parameter are specified, they will all be evaluated.
+# Prevent a reboot if the specificed process is detected running. Can be
+# just the command name (rsync) or a specific command invocation
+# (mysqldump -u root --all-databases). If multiple definitions of this
+# parameter are specified, they will all be evaluated.
 # Default: (nothing)
 PREVENT_WHEN_PROCESS=
 
-# This bash command must return success (exit code 0) or a reboot will be prevented.
-# Note that this command should be able to be executed quickly, and repeatedly, as coreboot will
-# continually run this every minute while waiting for a reboot to become safe to do.
-# If multiple definitions of this parameter are specified, they will all be evaluated.
+# This bash command must return success (exit code 0) or a reboot will be
+# prevented. Note that this command should be able to be executed quickly,
+# and repeatedly, as coreboot will continually run this every minute while
+# waiting for a reboot to become safe to do. If multiple definitions of
+# this parameter are specified, they will all be evaluated.
 # Default: (nothing)
 PREVENT_IF_SCRIPT_FAILS=
 
 # Bash command(s) to run just prior to issuing the `shutdown -r` command.
-# Regardless of success or failure of this script, the reboot will commence afterward.
-# If multiple definitions of this parameter are specified, they will all be evaluated.
+# Regardless of success or failure of this script, the reboot will commence
+# afterward. If multiple definitions of this parameter are specified, they
+# will all be evaluated.
 # Default: (nothing)
 PRE_SHUTDOWN_COMMAND=

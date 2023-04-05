@@ -476,9 +476,15 @@ check_reboot() {
 }
 
 remove_nologin() {
-    if [[ "$PREVENT_NOLOGIN" -eq 1 && -f /etc/nologin ]]; then
-        _debug "Removing /etc/nologin"
-        rm /etc/nologin
+    if [[ "$PREVENT_NOLOGIN" -eq 1 ]]; then
+        if [[ -f /etc/nologin ]]; then
+            _debug "Removing /etc/nologin"
+            rm /etc/nologin
+        fi
+        if [[ -f /var/run/nologin ]]; then
+            _debug "Removing /var/run/nologin"
+            rm /var/run/nologin
+        fi
     fi
 }
 
