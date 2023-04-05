@@ -314,18 +314,16 @@ set_motd_tag() {
 
 update_motd() {
     if [[ "$UPDATE_MOTD" -eq 1 ]]; then
-        if has_pending_reboot; then
-            set_motd_tag "active" "A reboot is scheduled for $( display_shutdown_time )"
-        elif has_pending_shutdown; then
-            set_motd_tag "active" "A shutdown is scheduled for $( display_shutdown_time )"
+        if has_pending_shutdown; then
+            clear_motd_tag "waiting"
+            SD_TYPE="shutdown"
+            has_pending_reboot && SD_TYPE="reboot"
+            set_motd_tag "active" "A ${SD_TYPE} is scheduled for $( display_shutdown_time )"
         else
             clear_motd_tag "active"
-        fi
-
-        if ( need_to_reboot || queued_reboot ); then
-            set_motd_tag "waiting" "A reboot is pending. Reboot window(s): ${REBOOT_TIMES}"
-        else
-            clear_motd_tag "waiting"
+            if ( need_to_reboot || queued_reboot ); then
+                set_motd_tag "waiting" "A reboot is pending. Reboot times: ${REBOOT_TIMES}"
+            fi
         fi
     fi
 }
@@ -540,7 +538,7 @@ do_shutdown() {
     _debug "Scheduling shutdown at ${SHUTDOWN_TIME}"
     if mock_run; then return; fi
     declare -a SD_FLAGS=("-r")
-    [[ "$BROADCAST_REBOOT" -eq 1 ]] && SD_FLAGS+=("--no-wall")
+    [[ "$BROADCAST_REBOOT" -eq 1 ]] || SD_FLAGS+=("--no-wall")
     shutdown "${SD_FLAGS[@]}" "${SHUTDOWN_TIME}"
 }
 
