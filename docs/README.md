@@ -38,6 +38,7 @@ The config has following settings:
  * [`SHUTDOWN_TIME`](#shutdown_time)
  * [`PREVENT_NOLOGIN`](#prevent_nologin)
  * [`UPDATE_MOTD`](#update_motd)
+ * [`BROADCAST_REBOOT`](#broadcast_reboot)
  * [`PREVENT_ACTIVE_USER_MINUTES`](#prevent_active_user_minutes)
  * [`PREVENT_WHEN_PROCESS`](#prevent_when_process) (multiples allowed)
  * [`PREVENT_IF_SCRIPT_FAILS`](#prevent_if_script-fails) (multiples allowed)
@@ -81,6 +82,16 @@ login message-of-the-day when a reboot in needed, or if a reboot
 is actively scheuduled.
 ```
 UPDATE_MOTD=1
+```
+
+### BROADCAST_REBOOT
+Default: `1`  
+Setting this value to 0 will suppress the periodic broadcast `wall`
+messages sent to logged in users once a reboot is scheduled.
+Effectively, when set to a non-`1` value, the `--no-wall` flag will be
+passed to the `shutdown` command.
+```
+BROADCAST_REBOOT=0
 ```
 
 ### PREVENT_ACTIVE_USER_MINUTES

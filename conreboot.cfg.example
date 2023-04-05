@@ -21,6 +21,11 @@ REBOOT_TIMES=never
 # Default: 0
 #UPDATE_MOTD=1
 
+# Whether to periodically broadcast wall messages to logged in users once a
+# reboot has been scheduled.
+# Default: 1
+#BROADCAST_REBOOT=0
+
 # How long a user must be idle (in minutes) before they are considered no
 # longer active.
 # Set to 0 to reboot while users are active.

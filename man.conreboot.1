@@ -105,6 +105,15 @@ is actively scheuduled.
 Default: 0
 
 .TP
+.B BROADCAST_REBOOT
+Setting this value to 0 will suppress the periodic broadcast `wall`
+messages sent to logged in users once a reboot is scheduled.
+Effectively, when set to a non-`1` value, the `--no-wall` flag will be
+passed to the `shutdown` command.
+.IP
+Default: 1
+
+.TP
 .B PREVENT_ACTIVE_USER_MINUTES
 Prevent reboot if there are active users logged in, where an
 active user is those who have terminal activity with the given

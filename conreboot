@@ -9,7 +9,7 @@
 
 SCRIPT_NAME=$( basename "$0" )
 # shellcheck disable=SC2034
-VERSION=0.2.4
+VERSION=0.2.5
 CONFIG_FILE=/etc/conreboot.cfg
 MANUAL_REBOOT_INDICATOR=/run/conreboot-scheduled
 CONFIG_HASH_FILE=/run/conreboot.md5
@@ -166,6 +166,7 @@ default_config() {
         SHUTDOWN_TIME
         PREVENT_NOLOGIN
         UPDATE_MOTD
+        BROADCAST_REBOOT
         PREVENT_WHEN_PROCESS
         PREVENT_ACTIVE_USER_MINUTES
         PREVENT_IF_SCRIPT_FAILS
@@ -178,6 +179,7 @@ default_config() {
         PRE_SHUTDOWN_COMMAND
     )
     declare -g REBOOT_TIMES=never
+    declare -g BROADCAST_REBOOT=1
     declare -g SHUTDOWN_TIME="+1"
     declare -g PREVENT_NOLOGIN=0
     declare -g UPDATE_MOTD=0
@@ -316,10 +318,14 @@ update_motd() {
             set_motd_tag "active" "A reboot is scheduled for $( display_shutdown_time )"
         elif has_pending_shutdown; then
             set_motd_tag "active" "A shutdown is scheduled for $( display_shutdown_time )"
-        elif ( need_to_reboot || queued_reboot ); then
+        else
+            clear_motd_tag "active"
+        fi
+
+        if ( need_to_reboot || queued_reboot ); then
             set_motd_tag "waiting" "A reboot is pending. Reboot window(s): ${REBOOT_TIMES}"
         else
-            clear_motd
+            clear_motd_tag "waiting"
         fi
     fi
 }
@@ -531,9 +537,11 @@ do_pre_shutdown() {
 }
 
 do_shutdown() {
-    _debug "shutdown -r ${SHUTDOWN_TIME}"
+    _debug "Scheduling shutdown at ${SHUTDOWN_TIME}"
     if mock_run; then return; fi
-    shutdown -r "${SHUTDOWN_TIME}"
+    declare -a SD_FLAGS=("-r")
+    [[ "$BROADCAST_REBOOT" -eq 1 ]] && SD_FLAGS+=("--no-wall")
+    shutdown "${SD_FLAGS[@]}" "${SHUTDOWN_TIME}"
 }
 
 cleanup_daemon() {
