@@ -3,3 +3,5 @@ conreboot.cfg
 build/dist/
 env/
 TODO*
+# PHPStorm folder
+.idea/
