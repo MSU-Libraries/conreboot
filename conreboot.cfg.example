@@ -53,3 +53,7 @@ PREVENT_IF_SCRIPT_FAILS=
 # will all be evaluated.
 # Default: (nothing)
 PRE_SHUTDOWN_COMMAND=
+
+# Enable Debug mode
+# Default: none
+#DEBUG=1
