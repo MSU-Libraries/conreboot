@@ -171,6 +171,7 @@ default_config() {
         PREVENT_ACTIVE_USER_MINUTES
         PREVENT_IF_SCRIPT_FAILS
         PRE_SHUTDOWN_COMMAND
+        DEBUG
     )
     # shellcheck disable=SC2034
     declare -g -a ALLOW_MULTI=(
@@ -377,7 +378,7 @@ no_prohibited_process() {
     PROC_FOUND=0
     for PWP in "${PREVENT_WHEN_PROCESS[@]}"; do
         if pgrep -f -- "${PWP}" > /dev/null; then
-            _debug "Found prohibited process matching: $PROC"
+            _debug "Found prohibited process matching: ${PWP}"
             PROC_FOUND=1
             break
         fi
@@ -539,6 +540,7 @@ do_shutdown() {
     if mock_run; then return; fi
     declare -a SD_FLAGS=("-r")
     [[ "$BROADCAST_REBOOT" -eq 1 ]] || SD_FLAGS+=("--no-wall")
+    _debug "Shutting down"
     shutdown "${SD_FLAGS[@]}" "${SHUTDOWN_TIME}"
 }
 
@@ -671,7 +673,7 @@ command_cancel() {
             exit 1
         fi
     else
-        echo -e "${CLR_BLUE}SKIPPED${CLR_RESET}: There is no manually scheuduled conreboot to stop."
+        echo -e "${CLR_BLUE}SKIPPED${CLR_RESET}: There is no manually scheduled conreboot to stop."
     fi
     # Stop reboot if it was already scheduled
     if has_pending_reboot; then
